@@ -1,3 +1,19 @@
+:root[data-theme="light"] {
+	--bg-color: #ffffff;
+	--text-color: #333333;
+	--primary-color: #00ff9d;
+	--secondary-color: #333;
+	--card-bg: #f5f5f5;
+}
+
+:root[data-theme="dark"] {
+	--bg-color: #1a1a1a;
+	--text-color: #ffffff;
+	--primary-color: #00ff9d;
+	--secondary-color: #f5f5f5;
+	--card-bg: #2d2d2d;
+}
+
 * {
 	margin: 0;
 	padding: 0;
@@ -7,7 +23,9 @@
 body {
 	font-family: Arial, sans-serif;
 	line-height: 1.6;
-	color: #333;
+	background-color: var(--bg-color);
+	color: var(--text-color);
+	transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 header {
@@ -16,6 +34,14 @@ header {
 	background: rgba(51, 51, 51, 0.95);
 	padding: 1rem;
 	z-index: 1000;
+}
+
+nav {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	max-width: 1200px;
+	margin: 0 auto;
 }
 
 nav ul {
@@ -35,7 +61,16 @@ nav ul li a {
 }
 
 nav ul li a:hover {
-	color: #00ff9d;
+	color: var(--primary-color);
+}
+
+.theme-toggle {
+	background: none;
+	border: none;
+	color: white;
+	font-size: 1.2rem;
+	cursor: pointer;
+	padding: 0.5rem;
 }
 
 .section {
@@ -57,7 +92,7 @@ nav ul li a:hover {
 
 .progress-bar {
 	height: 20px;
-	background: #eee;
+	background: var(--card-bg);
 	border-radius: 10px;
 	overflow: hidden;
 	position: relative;
@@ -69,9 +104,31 @@ nav ul li a:hover {
 	left: 0;
 	top: 0;
 	height: 100%;
-	background: #00ff9d;
+	background: var(--primary-color);
 	width: 0;
 	transition: width 1s ease;
+}
+
+.project-filters {
+	display: flex;
+	justify-content: center;
+	gap: 1rem;
+	margin-bottom: 2rem;
+}
+
+.filter-btn {
+	padding: 0.5rem 1rem;
+	border: 2px solid var(--primary-color);
+	background: transparent;
+	color: var(--text-color);
+	border-radius: 25px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.filter-btn.active {
+	background: var(--primary-color);
+	color: var(--bg-color);
 }
 
 .projects-grid {
@@ -82,7 +139,7 @@ nav ul li a:hover {
 }
 
 .project-card {
-	background: #f5f5f5;
+	background: var(--card-bg);
 	padding: 1rem;
 	border-radius: 8px;
 	transition: transform 0.3s ease;
@@ -90,6 +147,28 @@ nav ul li a:hover {
 
 .project-card:hover {
 	transform: translateY(-5px);
+}
+
+.testimonials-slider {
+	max-width: 800px;
+	margin: 0 auto;
+	overflow: hidden;
+	position: relative;
+}
+
+.testimonial-card {
+	background: var(--card-bg);
+	padding: 2rem;
+	border-radius: 10px;
+	margin: 1rem;
+	opacity: 0;
+	transform: translateX(100%);
+	transition: all 0.5s ease;
+}
+
+.testimonial-card.active {
+	opacity: 1;
+	transform: translateX(0);
 }
 
 #contact-form {
@@ -103,14 +182,16 @@ nav ul li a:hover {
 input,
 textarea {
 	padding: 0.8rem;
-	border: 1px solid #ddd;
+	border: 1px solid var(--card-bg);
 	border-radius: 4px;
+	background: var(--bg-color);
+	color: var(--text-color);
 }
 
 button {
 	padding: 1rem;
-	background: #333;
-	color: white;
+	background: var(--secondary-color);
+	color: var(--bg-color);
 	border: none;
 	border-radius: 4px;
 	cursor: pointer;
@@ -118,5 +199,5 @@ button {
 }
 
 button:hover {
-	background: #555;
+	background: var(--primary-color);
 }

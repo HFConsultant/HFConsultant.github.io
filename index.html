@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>My Portfolio</title>
 	<link rel="stylesheet" href="css/style.css">
+	<link rel="stylesheet"
+		href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
 <body>
@@ -17,11 +19,14 @@
 				<li><a href="#projects">Projects</a></li>
 				<li><a href="#contact">Contact</a></li>
 			</ul>
+			<button id="theme-toggle" class="theme-toggle">
+				<i class="fas fa-moon"></i>
+			</button>
 		</nav>
 	</header>
 	<main>
 		<section id="home" class="section">
-			<h1>Welcome to My Portfolio</h1>
+			<h1>Welcome!</h1>
 			<p class="typing-text"></p>
 		</section>
 
@@ -45,8 +50,21 @@
 
 		<section id="projects" class="section">
 			<h2>My Projects</h2>
+			<div class="project-filters">
+				<button class="filter-btn active" data-filter="all">All</button>
+				<button class="filter-btn" data-filter="frontend">Frontend</button>
+				<button class="filter-btn" data-filter="backend">Backend</button>
+				<button class="filter-btn" data-filter="fullstack">Full Stack</button>
+			</div>
 			<div class="projects-grid">
 				<!-- Projects will be dynamically added here -->
+			</div>
+		</section>
+
+		<section id="testimonials" class="section">
+			<h2>What People Say</h2>
+			<div class="testimonials-slider">
+				<!-- Testimonials will be added dynamically -->
 			</div>
 		</section>
 
