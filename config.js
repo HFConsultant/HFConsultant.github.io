@@ -29,28 +29,20 @@ const siteConfig = {
             percent: 70,
             technologies: ["Docker", "AWS", "CI/CD"]
         }
+        // Add more skills...
     ],
 
     // Projects Configuration
     projects: [
         {
-            title: "E-commerce Platform",
-            description: "Full-featured online store with payment integration",
-            category: "fullstack",
-            technologies: ["React", "Node.js", "MongoDB"],
-            image: "images/project1.jpg",
-            liveUrl: "https://project1.com",
-            sourceUrl: "https://github.com/yourusername/project1"
-        },
-        {
-            title: "Portfolio Website",
-            description: "Responsive personal portfolio",
+            title: "Project Name",
+            description: "Project description",
             category: "frontend",
-            technologies: ["HTML", "CSS", "JavaScript"],
-            image: "images/project2.jpg",
-            liveUrl: "https://project2.com",
-            sourceUrl: "https://github.com/yourusername/project2"
+            technologies: ["React", "Node.js", "MongoDB"],
+            liveUrl: "https://project.com",
+            sourceUrl: "https://github.com/project"
         }
+        // Add more projects...
     ],
 
     // Testimonials Configuration
@@ -72,10 +64,10 @@ const siteConfig = {
     // Theme Configuration
     theme: {
         light: {
-            primary: "#00ff9d",
-            secondary: "#333333",
-            background: "#ffffff",
-            text: "#333333"
+        primary: "#00ff9d",  // Accent color
+        secondary: "#333333", // Secondary color
+        background: "#ffffff", // Background color
+        text: "#333333"      // Text color
         },
         dark: {
             primary: "#00ff9d",
