@@ -4,7 +4,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>My Portfolio</title>
+	<title id="site-title">Portfolio</title>
 	<link rel="stylesheet" href="css/style.css">
 	<link rel="stylesheet"
 		href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -16,6 +16,7 @@
 			<ul>
 				<li><a href="#home">Home</a></li>
 				<li><a href="#about">About</a></li>
+				<li><a href="#skills">Skills</a></li>
 				<li><a href="#projects">Projects</a></li>
 				<li><a href="#contact">Contact</a></li>
 			</ul>
@@ -24,32 +25,32 @@
 			</button>
 		</nav>
 	</header>
+
 	<main>
 		<section id="home" class="section">
-			<h1>Welcome!</h1>
+			<h1 id="greeting">Welcome, I'm <span id="dev-name"></span></h1>
 			<p class="typing-text"></p>
+			<div class="social-links">
+				<a href="" id="github-link" target="_blank"><i class="fab fa-github"></i></a>
+				<a href="" id="linkedin-link" target="_blank"><i class="fab fa-linkedin"></i></a>
+				<a href="" id="twitter-link" target="_blank"><i class="fab fa-twitter"></i></a>
+			</div>
 		</section>
 
 		<section id="about" class="section">
 			<h2>About Me</h2>
-			<div class="skills-container">
-				<div class="skill">
-					<h3>Frontend</h3>
-					<div class="progress-bar" data-percent="85"></div>
-				</div>
-				<div class="skill">
-					<h3>Backend</h3>
-					<div class="progress-bar" data-percent="75"></div>
-				</div>
-				<div class="skill">
-					<h3>DevOps</h3>
-					<div class="progress-bar" data-percent="70"></div>
-				</div>
+			<p id="about-text">Based in <span id="location"></span></p>
+		</section>
+
+		<section id="skills" class="section">
+			<h2>Skills</h2>
+			<div class="skills-container" id="skills-container">
+				<!-- Skills will be dynamically added here -->
 			</div>
 		</section>
 
 		<section id="projects" class="section">
-			<h2>My Projects</h2>
+			<h2>Projects</h2>
 			<div class="project-filters">
 				<button class="filter-btn active" data-filter="all">All</button>
 				<button class="filter-btn" data-filter="frontend">Frontend</button>
@@ -62,14 +63,15 @@
 		</section>
 
 		<section id="testimonials" class="section">
-			<h2>What People Say</h2>
+			<h2>Testimonials</h2>
 			<div class="testimonials-slider">
-				<!-- Testimonials will be added dynamically -->
+				<!-- Testimonials will be dynamically added here -->
 			</div>
 		</section>
 
 		<section id="contact" class="section">
-			<h2>Contact Me</h2>
+			<h2>Get In Touch</h2>
+			<p>Email me at: <a id="email-link"></a></p>
 			<form id="contact-form">
 				<input type="text" id="name" placeholder="Your Name" required>
 				<input type="email" id="email" placeholder="Your Email" required>
@@ -78,7 +80,12 @@
 			</form>
 		</section>
 	</main>
-	<script src="js/main.js"></script>
+
+	<footer>
+		<p>© <span id="current-year"></span> <span id="footer-name"></span>. All rights reserved.</p>
+	</footer>
+
+	<script type="module" src="js/main.js"></script>
 </body>
 
 </html>

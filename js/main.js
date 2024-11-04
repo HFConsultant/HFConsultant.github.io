@@ -1,6 +1,8 @@
+import siteConfig from './config.js';
+
 // Typing effect
 const typeText = () => {
-    const text = "I'm a Full Stack Developer";
+    const text = `I'm a ${siteConfig.title}`;
     const typingText = document.querySelector('.typing-text');
     let i = 0;
 
@@ -17,8 +19,8 @@ const typeText = () => {
 // Progress bars animation
 const animateProgressBars = () => {
     const progressBars = document.querySelectorAll('.progress-bar');
-    progressBars.forEach(bar => {
-        const percent = bar.getAttribute('data-percent');
+    progressBars.forEach((bar, index) => {
+        const percent = siteConfig.skills[index].percent;
         bar.style.setProperty('--progress', percent + '%');
         bar.style.width = percent + '%';
     });
@@ -32,39 +34,17 @@ themeToggle.addEventListener('click', () => {
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
     html.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
+    applyTheme(newTheme);
 
-    // Update icon
     const icon = themeToggle.querySelector('i');
     icon.className = newTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
 });
 
-// Project data
-const projects = [
-    {
-        title: 'Health and Fitness Platform',
-        description: 'Knowledge Sharing Online Community',
-        category: 'fullstack',
-        technologies: ['React', 'Node.js', 'MongoDB']
-    },
-    {
-        title: 'Portfolio Website',
-        description: 'Responsive personal portfolio',
-        category: 'frontend',
-        technologies: ['HTML', 'CSS', 'JavaScript']
-    },
-    // {
-    //     title: 'API Service',
-    //     description: 'RESTful API with authentication',
-    //     category: 'backend',
-    //     technologies: ['Node.js', 'Express', 'JWT']
-    // }
-];
-
 // Project filtering
 const filterProjects = (category) => {
     const filteredProjects = category === 'all'
-        ? projects
-        : projects.filter(project => project.category === category);
+        ? siteConfig.projects
+        : siteConfig.projects.filter(project => project.category === category);
 
     const projectsGrid = document.querySelector('.projects-grid');
     projectsGrid.innerHTML = '';
@@ -77,6 +57,10 @@ const filterProjects = (category) => {
             <p>${project.description}</p>
             <div class="technologies">
                 ${project.technologies.map(tech => `<span>${tech}</span>`).join('')}
+            </div>
+            <div class="project-links">
+                <a href="${project.liveUrl}" target="_blank">Live Demo</a>
+                <a href="${project.sourceUrl}" target="_blank">Source Code</a>
             </div>
         `;
         projectsGrid.appendChild(card);
@@ -93,23 +77,7 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 });
 
 // Testimonials data and slider
-const testimonials = [
-    {
-        text: "HFConsultants's software has revolutionized the way we do business. It has saved us time, increased our productivity, and improved our customer relationships",
-        author: "Janet Smith",
-        position: "CFO, FairBnB"
-    },
-    {
-        text: "I've been using HFConsultants's software for a few months now, and it has made a big difference in my business. The software is easy to use and has all the features I need to run my business efficiently. I especially like the customer relationship management (CRM) module. It has helped me improve my relationships with my customers and has made it easier to manage my sales pipeline.",
-        author: "Jane Doughe",
-        position: "CEO, Gr88 Media"
-    },
-    {
-        text: "HFConsultants have dramatically improved our business model and workflow. It's now easier to accomplish more, and their support is top tier.",
-        author: "John Janssen",
-        position: "Founder"
-    }
-];
+const testimonials = siteConfig.testimonials;
 
 let currentTestimonial = 0;
 
@@ -130,15 +98,17 @@ setInterval(() => {
 }, 5000);
 
 // Form handling
-document.getElementById('contact-form').addEventListener('submit', (e) => {
+document.getElementById('contact-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         message: document.getElementById('message').value
     };
-    console.log('Form submitted:', formData);
-    // Add form submission logic here
+
+    if (siteConfig.contactConfig.emailService === 'emailjs') {
+        // Add emailjs implementation using siteConfig.contactConfig.emailjsConfig
+    }
 });
 
 // Intersection Observer for scroll animations
@@ -161,6 +131,17 @@ document.querySelectorAll('.section').forEach(section => {
     observer.observe(section);
 });
 
+// Theme handling using config colors
+const applyTheme = (theme) => {
+    const root = document.documentElement;
+    const themeColors = siteConfig.theme[theme];
+
+    root.style.setProperty('--primary-color', themeColors.primary);
+    root.style.setProperty('--secondary-color', themeColors.secondary);
+    root.style.setProperty('--background-color', themeColors.background);
+    root.style.setProperty('--text-color', themeColors.text);
+};
+
 // Initialize everything
 window.addEventListener('load', () => {
     typeText();
@@ -171,5 +152,26 @@ window.addEventListener('load', () => {
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     themeToggle.querySelector('i').className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
-});
+    applyTheme(savedTheme);
 
+    // Set page title
+    document.getElementById('site-title').textContent = `${siteConfig.name} | ${siteConfig.title}`;
+
+    // Populate name and location
+    document.getElementById('dev-name').textContent = siteConfig.name;
+    document.getElementById('location').textContent = siteConfig.location;
+
+    // Set social media links
+    document.getElementById('github-link').href = siteConfig.social.github;
+    document.getElementById('linkedin-link').href = siteConfig.social.linkedin;
+    document.getElementById('twitter-link').href = siteConfig.social.twitter;
+
+    // Set email
+    const emailLink = document.getElementById('email-link');
+    emailLink.href = `mailto:${siteConfig.email}`;
+    emailLink.textContent = siteConfig.email;
+
+    // Set footer
+    document.getElementById('footer-name').textContent = siteConfig.name;
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+});
