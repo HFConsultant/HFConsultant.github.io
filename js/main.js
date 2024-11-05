@@ -1,4 +1,11 @@
-import siteConfig from './config.js';
+// At the top of main.js
+let siteConfig;
+try {
+    siteConfig = await import('./config.js');
+} catch {
+    siteConfig = await import('./config.example.js');
+    console.log('Using example configuration. Create your own config.js to customize.');
+}
 
 // Typing effect
 const typeText = () => {
@@ -100,14 +107,21 @@ setInterval(() => {
 // Form handling
 document.getElementById('contact-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const formData = {
+
+    const { serviceId, templateId, userId } = siteConfig.contactConfig.emailjsConfig;
+
+    const templateParams = {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         message: document.getElementById('message').value
     };
 
-    if (siteConfig.contactConfig.emailService === 'emailjs') {
-        // Add emailjs implementation using siteConfig.contactConfig.emailjsConfig
+    try {
+        await emailjs.send(serviceId, templateId, templateParams, userId);
+        alert('Message sent successfully!');
+        e.target.reset();
+    } catch (error) {
+        alert('Failed to send message. Please try again.');
     }
 });
 
@@ -164,7 +178,7 @@ window.addEventListener('load', () => {
     // Set social media links
     document.getElementById('github-link').href = siteConfig.social.github;
     document.getElementById('linkedin-link').href = siteConfig.social.linkedin;
-    document.getElementById('twitter-link').href = siteConfig.social.twitter;
+    document.getElementById('twitter-link').href = siteConfig.social.x;
 
     // Set email
     const emailLink = document.getElementById('email-link');

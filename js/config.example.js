@@ -9,7 +9,7 @@ const siteConfig = {
     social: {
         github: "https://github.com/yourusername",
         linkedin: "https://linkedin.com/in/yourusername",
-        twitter: "https://twitter.com/yourusername",
+        x: "https://x.com/yourusername"    // Updated from 'twitter' to 'x'
     },
 
     // Skills Configuration

@@ -33,7 +33,7 @@
 			<div class="social-links">
 				<a href="" id="github-link" target="_blank"><i class="fab fa-github"></i></a>
 				<a href="" id="linkedin-link" target="_blank"><i class="fab fa-linkedin"></i></a>
-				<a href="" id="twitter-link" target="_blank"><i class="fab fa-twitter"></i></a>
+				<a href="" id="twitter-link" target="_blank"><i class="fa-brands fa-x-twitter"></i></a>
 			</div>
 		</section>
 
@@ -89,3 +89,10 @@
 </body>
 
 </html>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script>
+	(function () {
+		emailjs.init(siteConfig.contactConfig.emailjsConfig.userId);
+	})();
+</script>
