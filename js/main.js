@@ -1,15 +1,7 @@
 import * as ui from './ui.js';
 import * as terminal from './terminal.js';
 import * as configManager from './config-manager.js';
-
-// Initial config loading
-let siteConfig;
-try {
-    siteConfig = await import('./config.js');
-} catch {
-    siteConfig = await import('./config.example.js');
-    console.log('Using example configuration. Create your own config.js to customize.');
-}
+import siteConfig from './config.js';
 
 // Initialize observers
 const observerCallback = (entries) => {
