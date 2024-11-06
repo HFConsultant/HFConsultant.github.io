@@ -1,4 +1,4 @@
-const siteConfig = {
+window.siteConfig = {
     // Demo Config
     name: "Dev Debuggington III",
     title: "Digital Alchemist",
@@ -12,7 +12,11 @@ const siteConfig = {
         { name: "Ctrl+Z Mastery", percent: 95 },
         { name: "Documentation Time Travel", percent: 85 }
     ],
-
+    social: {
+        github: "https://github.com/yourusername",
+        linkedin: "https://linkedin.com/in/yourusername",
+        twitter: "https://twitter.com/yourusername"
+    },
     projects: [
         {
             title: "Infinite Loop Resort & Spa",
@@ -83,7 +87,7 @@ const siteConfig = {
             templateId: "template_mfah1c7",
             userId: "zo1zlg8u_NcFbPQdC"
         }
-    }
+    },
 
  // Hidden features that respond to specific terminal commands
     easterEggs: {
@@ -107,5 +111,3 @@ const siteConfig = {
         technologies: ["Dream.js", "REM.css", "Snooze.io"]
     }
 };
-
-export default siteConfig;

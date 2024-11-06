@@ -1,98 +1,96 @@
-export const openDB = () => {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open("PortfolioDB", 1);
+window.configManager = {
+    openDB: function() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open("PortfolioDB", 1);
 
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            db.createObjectStore("configs", { keyPath: "id" });
-        };
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                db.createObjectStore("configs", { keyPath: "id" });
+            };
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-export const configOperations = {
-    async saveConfig(configName, config) {
-        const db = await openDB();
-        const transaction = db.transaction("configs", "readwrite");
-        await transaction.objectStore("configs").put({
-            id: configName,
-            ...config
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
         });
-        return `Configuration '${configName}' saved!`;
     },
+    configOperations: {
+        async saveConfig(configName, config) {
+            const db = await this.openDB();
+            const transaction = db.transaction("configs", "readwrite");
+            await transaction.objectStore("configs").put({
+                id: configName,
+                ...config
+            });
+            return `Configuration '${configName}' saved!`;
+        },
 
-    async loadConfig(configName) {
-        const db = await openDB();
-        const config = await db.transaction("configs")
-            .objectStore("configs")
-            .get(configName);
+        async loadConfig(configName) {
+            const db = await this.openDB();
+            const config = await db.transaction("configs")
+                .objectStore("configs")
+                .get(configName);
 
-        if (!config) {
-            throw new Error("Configuration not found");
+            if (!config) {
+                throw new Error("Configuration not found");
+            }
+            return config;
+        },
+
+        async listConfigs() {
+            const db = await this.openDB();
+            return db.transaction("configs")
+                .objectStore("configs")
+                .getAllKeys();
+        },
+
+        async deleteConfig(configName) {
+            const db = await this.openDB();
+            await db.transaction("configs", "readwrite")
+                .objectStore("configs")
+                .delete(configName);
+            return `Configuration '${configName}' deleted`;
         }
-        return config;
     },
-
-    async listConfigs() {
-        const db = await openDB();
-        return db.transaction("configs")
-            .objectStore("configs")
-            .getAllKeys();
+    validateConfig: function(config) {
+        const required = ['name', 'title', 'location', 'skills', 'projects'];
+        const missing = required.filter(key => !config[key]);
+        return missing.length === 0 ? true : `Missing required fields: ${missing.join(', ')}`;
     },
-
-    async deleteConfig(configName) {
-        const db = await openDB();
-        await db.transaction("configs", "readwrite")
-            .objectStore("configs")
-            .delete(configName);
-        return `Configuration '${configName}' deleted`;
-    }
-};
-
-export const validateConfig = (config) => {
-    const required = ['name', 'title', 'location', 'skills', 'projects'];
-    const missing = required.filter(key => !config[key]);
-    return missing.length === 0 ? true : `Missing required fields: ${missing.join(', ')}`;
-};
-
-export const configHistory = {
-    past: [],
-    current: null,
-    future: []
-};
-
-export const historyOperations = {
-    saveState(config) {
-        configHistory.past.push({...configHistory.current});
-        configHistory.current = {...config};
-        configHistory.future = [];
+    configHistory: {
+        past: [],
+        current: null,
+        future: []
     },
+    historyOperations: {
+        saveState(config) {
+            this.configHistory.past.push({...this.configHistory.current});
+            this.configHistory.current = {...config};
+            this.configHistory.future = [];
+        },
 
-    undo() {
-        if (configHistory.past.length > 0) {
-            configHistory.future.push({...configHistory.current});
-            configHistory.current = configHistory.past.pop();
-            return configHistory.current;
+        undo() {
+            if (this.configHistory.past.length > 0) {
+                this.configHistory.future.push({...this.configHistory.current});
+                this.configHistory.current = this.configHistory.past.pop();
+                return this.configHistory.current;
+            }
+            return null;
+        },
+
+        redo() {
+            if (this.configHistory.future.length > 0) {
+                this.configHistory.past.push({...this.configHistory.current});
+                this.configHistory.current = this.configHistory.future.pop();
+                return this.configHistory.current;
+            }
+            return null;
+        },
+
+        getTimeline() {
+            return {
+                past: [...this.configHistory.past],
+                current: {...this.configHistory.current},
+                future: [...this.configHistory.future]
+            };
         }
-        return null;
-    },
-
-    redo() {
-        if (configHistory.future.length > 0) {
-            configHistory.past.push({...configHistory.current});
-            configHistory.current = configHistory.future.pop();
-            return configHistory.current;
-        }
-        return null;
-    },
-
-    getTimeline() {
-        return {
-            past: [...configHistory.past],
-            current: {...configHistory.current},
-            future: [...configHistory.future]
-        };
     }
 };
