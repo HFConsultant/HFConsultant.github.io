@@ -21,15 +21,16 @@
 				<li><a href="#projects">Projects</a></li>
 				<li><a href="#contact">Contact</a></li>
 			</ul>
-			<button id="theme-toggle" class="theme-toggle">
-				<i class="fas fa-moon"></i>
-			</button>
+			<button id="theme-toggle"></button>
 		</nav>
 	</header>
 
+	<div id="dev-name"></div>
+	<div id="location"></div>
+	<div id="email-link"></div>
 	<main>
 		<section id="home" class="section">
-			<h1 id="greeting">Welcome, I'm <span id="dev-name"></span></h1>
+			<h1 id="greeting">Welcome to Dev Portfolio Demo, I'm <span id="dev-name"></span></h1>
 			<p class="typing-text"></p>
 			<div class="social-links">
 				<a href="" id="github-link" target="_blank"><i class="fab fa-github"></i></a>
@@ -86,6 +87,12 @@
 		<p>© <span id="current-year"></span> <span id="footer-name"></span>. All rights reserved.</p>
 	</footer>
 
+	<script>
+		// Initialize global objects
+		window.ui = {};
+		window.terminal = {};
+		window.configManager = {};
+	</script>
 	<script src="js/config.js"></script>
 	<script src="js/ui.js"></script>
 	<script src="js/terminal.js"></script>
