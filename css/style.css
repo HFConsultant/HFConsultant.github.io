@@ -64,13 +64,15 @@ nav ul li a:hover {
 	color: var(--primary-color);
 }
 
-.theme-toggle {
-	background: none;
+#theme-toggle {
+	position: relative;
+	padding: 10px;
+	margin-left: 20px;
+	background: var(--primary-color);
 	border: none;
-	color: white;
-	font-size: 1.2rem;
+	border-radius: 50%;
 	cursor: pointer;
-	padding: 0.5rem;
+	z-index: 100;
 }
 
 .section {
@@ -322,27 +324,34 @@ footer {
 /* Terminal Container */
 .terminal {
 	position: fixed;
-
-	bottom: 80px;
-	right: 20px;
-
-
-	width: 600px;
-	height: 400px;
+	top: 100px;
+	right: 50px;
+	width: 80%;
+	max-width: 800px;
+	height: 500px;
 	background: #1a1a1a;
-
+	border: 2px solid var(--primary-color);
 	border-radius: 8px;
-
-
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-	z-index: 999;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+	z-index: 1000;
 	display: flex;
 	flex-direction: column;
 }
 
+.terminal-toggle {
+	position: fixed;
+	top: 100px;
+	right: 20px;
+	padding: 15px;
+	font-size: 1.5rem;
+	background: var(--primary-color);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+	z-index: 1001;
+}
+
 /* Terminal Header */
 .terminal-header {
-
 	padding: 10px;
 	background: #333;
 	border-radius: 8px 8px 0 0;
@@ -355,7 +364,6 @@ footer {
 /* Terminal Output Area */
 .terminal-output {
 	flex: 1;
-
 	padding: 10px;
 	overflow-y: auto;
 	color: #00ff9d;
