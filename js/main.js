@@ -1,10 +1,10 @@
-// Replace imports with direct window/global objects
+// direct window/global objects
 const ui = window.ui;
 const terminal = window.terminal;
 const configManager = window.configManager;
 const siteConfig = window.siteConfig;
 
-// Keep the observer logic
+// observer logic
 const observerCallback = (entries) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -43,12 +43,16 @@ const observer = new IntersectionObserver(observerCallback, { threshold: 0.1 });
 
         // Initialize UI components
         ui.typeText(siteConfig);
+        ui.createSkillBars(siteConfig.skills);
+        ui.animateProgressBars(siteConfig.skills);
         ui.filterProjects('all', siteConfig.projects);
+        ui.createTestimonials(siteConfig.testimonials);
+        ui.initTestimonialSlider();
         ui.addDownloadButton();
         terminal.addTerminalButton();
 
         // Theme initialization
-        const savedTheme = localStorage.getItem('theme') || 'light';
+        const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
         ui.applyTheme(savedTheme, siteConfig.theme);
     });

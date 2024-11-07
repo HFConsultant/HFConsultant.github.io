@@ -14,12 +14,32 @@ window.ui = {
             }
         }, 100);
     },
+    createSkillBars: function(skills) {
+        const container = document.getElementById('skills-container');
+        container.innerHTML = ''; // Clear existing content
+
+        skills.forEach(skill => {
+            const skillDiv = document.createElement('div');
+            skillDiv.className = 'skill';
+
+            skillDiv.innerHTML = `
+                <div class="skill-name">${skill.name}</div>
+                <div class="skill-bar">
+                    <div class="progress-bar" data-progress="${skill.level}">
+                        <span class="progress-text">${skill.level}%</span>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(skillDiv);
+        });
+    },
+
     animateProgressBars: function(skills) {
         const progressBars = document.querySelectorAll('.progress-bar');
-        progressBars.forEach((bar, index) => {
-            const percent = skills[index].percent;
-            bar.style.setProperty('--progress', percent + '%');
-            bar.style.width = percent + '%';
+        progressBars.forEach(bar => {
+            const progress = bar.getAttribute('data-progress');
+            bar.style.width = `${progress}%`;
         });
     },
     filterProjects: function(category, projects) {
@@ -73,3 +93,39 @@ window.ui = {
         document.body.appendChild(button);
     }
 };
+
+createTestimonials: function(testimonials) {
+    const slider = document.querySelector('.testimonials-slider');
+    slider.innerHTML = '';
+
+    testimonials.forEach(testimonial => {
+        const testimonialDiv = document.createElement('div');
+        testimonialDiv.className = 'testimonial';
+
+        testimonialDiv.innerHTML = `
+            <div class="testimonial-content">
+                <p class="quote">${testimonial.quote}</p>
+                <div class="author-info">
+                    <img src="${testimonial.avatar}" alt="${testimonial.name}" class="author-avatar">
+                    <div class="author-details">
+                        <h4>${testimonial.name}</h4>
+                        <p>${testimonial.position}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        slider.appendChild(testimonialDiv);
+    });
+},
+
+initTestimonialSlider: function() {
+    const testimonials = document.querySelectorAll('.testimonial');
+    let currentIndex = 0;
+
+    setInterval(() => {
+        testimonials[currentIndex].classList.remove('active');
+        currentIndex = (currentIndex + 1) % testimonials.length;
+        testimonials[currentIndex].classList.add('active');
+    }, 5000);
+}

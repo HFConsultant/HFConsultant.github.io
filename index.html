@@ -87,7 +87,18 @@
 		<p>© <span id="current-year"></span> <span id="footer-name"></span>. All rights reserved.</p>
 	</footer>
 
+	<div id="terminal-container" class="terminal-container">
+		<div id="terminal" class="terminal">
+			<div id="terminal-output"></div>
+			<div class="terminal-input-line">
+				<span class="prompt">$</span>
+				<input type="text" id="terminal-input" autocomplete="off">
+			</div>
+		</div>
+	</div>
+
 	<script>
+		// Initialize global objects
 		window.ui = {};
 		window.terminal = {};
 		window.configManager = {};
@@ -97,7 +108,6 @@
 	<script src="js/terminal.js"></script>
 	<script src="js/config-manager.js"></script>
 	<script src="js/main.js"></script>
-
 </body>
 
 </html>
