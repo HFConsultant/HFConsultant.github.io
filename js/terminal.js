@@ -100,6 +100,34 @@ window.terminal = {
         }
     },
 
+    quickEncrypt: async function(text, passphrase) {
+        const pepper = prompt('Enter additional secret value (pepper):');
+        const result = await this.terminalCommands.encrypt(text, passphrase + pepper);
+        navigator.clipboard.writeText(result);
+        return result;
+    },
+
+    quickDecrypt: async function(hash, passphrase) {
+        const pepper = prompt('Enter additional secret value (pepper):');
+        return await this.terminalCommands.decrypt(hash, passphrase + pepper);
+    },
+
+    initQuickActions: function() {
+        document.querySelector('.encrypt-btn').addEventListener('click', async () => {
+            const text = document.getElementById('quick-text').value;
+            const pass = document.getElementById('quick-pass').value;
+            const result = await this.quickEncrypt(text, pass);
+            this.writeOutput(result, false, true);
+        });
+
+        document.querySelector('.decrypt-btn').addEventListener('click', async () => {
+            const hash = document.getElementById('quick-hash').value;
+            const pass = document.getElementById('quick-decrypt-pass').value;
+            const result = await this.quickDecrypt(hash, pass);
+            this.writeOutput(result);
+        });
+    },
+
     initTerminal: function() {
         const input = document.querySelector('.terminal-input');
         const output = document.querySelector('.terminal-output');
@@ -168,4 +196,5 @@ window.terminal = {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.terminal.initTerminal();
+    window.terminal.initQuickActions();
 });
