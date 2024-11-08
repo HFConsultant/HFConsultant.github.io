@@ -100,28 +100,9 @@ window.terminal = {
         }
     },
 
-    createTerminal: function() {
-        const terminal = document.createElement('div');
-        terminal.className = 'terminal';
-        terminal.innerHTML = `
-            <div class="terminal-header">
-                <span>Secure Terminal</span>
-                <button class="terminal-close">×</button>
-            </div>
-            <div class="terminal-output"></div>
-            <div class="terminal-input-line">
-                <span class="prompt">></span>
-                <input type="text" class="terminal-input" autofocus>
-            </div>
-        `;
-
-        document.body.appendChild(terminal);
-        this.initTerminalEvents(terminal);
-    },
-
-    initTerminalEvents: function(terminal) {
-        const output = terminal.querySelector('.terminal-output');
-        const input = terminal.querySelector('.terminal-input');
+    initTerminal: function() {
+        const input = document.querySelector('.terminal-input');
+        const output = document.querySelector('.terminal-output');
 
         const writeOutput = (text, isCommand = false) => {
             const line = document.createElement('div');
@@ -153,16 +134,10 @@ window.terminal = {
             }
         });
 
-        terminal.querySelector('.terminal-close').onclick = () => terminal.remove();
         writeOutput('Welcome to the Secure Terminal. Type "help" for available commands.');
-        input.focus();
-    },
-
-    addTerminalButton: function() {
-        const button = document.createElement('button');
-        button.className = 'terminal-toggle';
-        button.innerHTML = '<i class="fas fa-terminal"></i>';
-        button.onclick = () => this.createTerminal();
-        document.body.appendChild(button);
     }
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.terminal.initTerminal();
+});
