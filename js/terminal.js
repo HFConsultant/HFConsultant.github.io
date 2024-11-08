@@ -143,12 +143,19 @@ window.terminal = {
                 const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
                 const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
 
-                if (this.terminalCommands[cmd]) {
-                    const result = await this.terminalCommands[cmd](text, passphrase);
-                    writeOutput(result, false, cmd === 'encrypt');
-                } else {
-                    writeOutput('Unknown command. Type "help" for available commands.');
-                }
+                const executeCommand = (cmd, args) => {
+                    const commands = {
+                        help: () => showHelp(),
+                        encrypt: (text, passphrase) => encryptText(text, passphrase),
+                        decrypt: (text, passphrase) => decryptText(text, passphrase),
+                        clear: () => clearTerminal()
+                    };
+
+                    return commands[cmd] ? commands[cmd](args) : 'Unknown command';
+                };
+
+                const result = await executeCommand(cmd, [text, passphrase]);
+                writeOutput(result, false, cmd === 'encrypt');
 
                 input.value = '';
                 output.scrollTop = output.scrollHeight;
