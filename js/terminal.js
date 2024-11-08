@@ -104,13 +104,34 @@ window.terminal = {
         const input = document.querySelector('.terminal-input');
         const output = document.querySelector('.terminal-output');
 
-        const writeOutput = (text, isCommand = false) => {
+        const writeOutput = (text, isCommand = false, isEncrypted = false) => {
             const line = document.createElement('div');
             line.className = isCommand ? 'command-line' : 'output-line';
-            line.textContent = isCommand ? `> ${text}` : text;
+
+            if (isEncrypted) {
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-btn';
+                copyButton.innerHTML = '<i class="fas fa-copy"></i>';
+                copyButton.onclick = () => {
+                    navigator.clipboard.writeText(text);
+                    copyButton.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => copyButton.innerHTML = '<i class="fas fa-copy"></i>', 2000);
+                };
+                line.appendChild(copyButton);
+            }
+
+            line.appendChild(document.createTextNode(isCommand ? `> ${text}` : text));
             output.appendChild(line);
             output.scrollTop = output.scrollHeight;
         };
+
+        // Handle example command clicks
+        document.querySelectorAll('.example-cmd').forEach(btn => {
+            btn.addEventListener('click', () => {
+                input.value = btn.textContent;
+                input.focus();
+            });
+        });
 
         input.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
@@ -124,7 +145,7 @@ window.terminal = {
 
                 if (this.terminalCommands[cmd]) {
                     const result = await this.terminalCommands[cmd](text, passphrase);
-                    writeOutput(result);
+                    writeOutput(result, false, cmd === 'encrypt');
                 } else {
                     writeOutput('Unknown command. Type "help" for available commands.');
                 }
