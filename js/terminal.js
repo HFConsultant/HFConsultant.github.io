@@ -1,33 +1,34 @@
 window.terminal = {
     state: {
-        mode: null, // 'encrypt' or 'decrypt'
+        mode: null,
         step: 0,
         data: {}
     },
 
-    terminalCommands: {
-        help: function() {
+    commands: {
+        help() {
             return `Available commands:
-        encrypt <text> -p <passphrase> - Encrypt text with passphrase
-        decrypt <text> -p <passphrase> - Decrypt text with passphrase
-        clear - Clear terminal
-        exit - Close terminal`;
+- Start Encryption: Begins guided encryption process
+- Start Decryption: Begins guided decryption process
+- clear: Clears the terminal
+- help: Shows this message`;
         },
 
-        encrypt: async function(text, passphrase) {
-            const pepper = prompt('Enter additional secret value (pepper):');
-            const combinedKey = passphrase + pepper;
+        clear() {
+            document.querySelector('.terminal-output').innerHTML = '';
+            return '';
+        },
+
+        async encrypt(text, passphrase, pepper) {
             const encoder = new TextEncoder();
             const data = encoder.encode(text);
-
             const key = await crypto.subtle.importKey(
                 'raw',
-                encoder.encode(combinedKey),
+                encoder.encode(passphrase + pepper),
                 { name: 'PBKDF2' },
                 false,
                 ['deriveBits']
             );
-
             const salt = crypto.getRandomValues(new Uint8Array(16));
             const encryptionKey = await crypto.subtle.deriveBits(
                 {
@@ -39,7 +40,6 @@ window.terminal = {
                 key,
                 256
             );
-
             const iv = crypto.getRandomValues(new Uint8Array(12));
             const encryptedData = await crypto.subtle.encrypt(
                 { name: 'AES-GCM', iv: iv },
@@ -52,7 +52,6 @@ window.terminal = {
                 ),
                 data
             );
-
             return btoa(JSON.stringify({
                 salt: Array.from(salt),
                 iv: Array.from(iv),
@@ -60,22 +59,16 @@ window.terminal = {
             }));
         },
 
-        decrypt: async function(encryptedText, passphrase) {
-            const pepper = prompt('Enter additional secret value (pepper):');
-            const combinedKey = passphrase + pepper;
-
+        async decrypt(hash, passphrase, pepper) {
             try {
-                const { salt, iv, data } = JSON.parse(atob(encryptedText));
-                const encoder = new TextEncoder();
-
+                const { salt, iv, data } = JSON.parse(atob(hash));
                 const key = await crypto.subtle.importKey(
                     'raw',
-                    encoder.encode(combinedKey),
+                    new TextEncoder().encode(passphrase + pepper),
                     { name: 'PBKDF2' },
                     false,
                     ['deriveBits']
                 );
-
                 const decryptionKey = await crypto.subtle.deriveBits(
                     {
                         name: 'PBKDF2',
@@ -86,7 +79,6 @@ window.terminal = {
                     key,
                     256
                 );
-
                 const decryptedData = await crypto.subtle.decrypt(
                     { name: 'AES-GCM', iv: new Uint8Array(iv) },
                     await crypto.subtle.importKey(
@@ -98,12 +90,15 @@ window.terminal = {
                     ),
                     new Uint8Array(data)
                 );
-
                 return new TextDecoder().decode(decryptedData);
             } catch {
-                return 'Decryption failed. Check your passphrase and pepper.';
+                return 'Decryption failed. Check your input and try again.';
             }
         }
+    },
+
+    executeCommand(name, ...args) {
+        return this.commands[name]?.(...args) ?? 'Unknown command';
     },
 
     startEncryption: function() {
@@ -139,8 +134,8 @@ window.terminal = {
                 this.state.data.pepper = input;
                 // Process encryption/decryption
                 const result = this.state.mode === 'encrypt'
-                    ? await this.terminalCommands.encrypt(this.state.data.text, this.state.data.passphrase + this.state.data.pepper)
-                    : await this.terminalCommands.decrypt(this.state.data.text, this.state.data.passphrase + this.state.data.pepper);
+                    ? await this.commands.encrypt(this.state.data.text, this.state.data.passphrase, this.state.data.pepper)
+                    : await this.commands.decrypt(this.state.data.text, this.state.data.passphrase, this.state.data.pepper);
 
                 this.writeOutput(result, false, this.state.mode === 'encrypt');
                 // Reset state
