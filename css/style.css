@@ -88,27 +88,26 @@ nav ul li a:hover {
 	margin: 2rem auto;
 }
 
+/* Skills styling */
 .skill {
-	margin: 1rem 0;
+	margin: 20px 0;
+	background: var(--bg-secondary);
+	padding: 15px;
+	border-radius: 8px;
 }
 
-.progress-bar {
+.skill-bar {
 	height: 20px;
-	background: var(--card-bg);
+	background: var(--bg-accent);
 	border-radius: 10px;
 	overflow: hidden;
-	position: relative;
+	margin: 10px 0;
 }
 
-.progress-bar::after {
-	content: '';
-	position: absolute;
-	left: 0;
-	top: 0;
+.progress {
 	height: 100%;
-	background: var(--primary-color);
-	width: 0;
-	transition: width 1s ease;
+	background: var(--accent-color);
+	transition: width 1s ease-in-out;
 }
 
 .project-filters {
@@ -133,22 +132,27 @@ nav ul li a:hover {
 	color: var(--bg-color);
 }
 
+/* Projects grid styling */
 .projects-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-	gap: 2rem;
-	padding: 2rem 0;
+	gap: 20px;
+	padding: 20px;
 }
 
-.project-card {
-	background: var(--card-bg);
-	padding: 1rem;
+.project {
+	background: var(--bg-secondary);
+	padding: 20px;
 	border-radius: 8px;
-	transition: transform 0.3s ease;
+	transition: transform 0.2s;
 }
 
-.project-card:hover {
-	transform: translateY(-5px);
+.tech-stack span {
+	background: var(--accent-color);
+	padding: 5px 10px;
+	border-radius: 15px;
+	margin: 5px;
+	display: inline-block;
 }
 
 .testimonials-slider {

@@ -8,7 +8,7 @@ window.terminal = {
         exit - Close terminal`;
         },
 
-        encrypt: async (text, passphrase) => {
+        encrypt: async function(text, passphrase) {
             const pepper = prompt('Enter additional secret value (pepper):');
             const combinedKey = passphrase + pepper;
             const encoder = new TextEncoder();
@@ -54,7 +54,7 @@ window.terminal = {
             }));
         },
 
-        decrypt: async (encryptedText, passphrase) => {
+        decrypt: async function(encryptedText, passphrase) {
             const pepper = prompt('Enter additional secret value (pepper):');
             const combinedKey = passphrase + pepper;
 

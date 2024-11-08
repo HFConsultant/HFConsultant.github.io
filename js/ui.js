@@ -1,18 +1,10 @@
 // Create UI namespace
 window.ui = {
     typeText: function(siteConfig) {
-        const text = `I'm a ${siteConfig.title}`;
-        const typingText = document.querySelector('.typing-text');
-        let i = 0;
-
-        const typing = setInterval(() => {
-            if (i < text.length) {
-                typingText.textContent += text.charAt(i);
-                i++;
-            } else {
-                clearInterval(typing);
-            }
-        }, 100);
+        const element = document.querySelector('.typing-text');
+        if (element) {
+            element.textContent = siteConfig.title;
+        }
     },
     createSkillBars: function(skills) {
         const container = document.getElementById('skills-container');
@@ -67,12 +59,13 @@ window.ui = {
             projectsGrid.appendChild(card);
         });
     },
-    applyTheme: function(theme, themeColors) {
+    applyTheme: function(theme, themeConfig) {
         const root = document.documentElement;
-        root.style.setProperty('--primary-color', themeColors[theme].primary);
-        root.style.setProperty('--secondary-color', themeColors[theme].secondary);
-        root.style.setProperty('--background-color', themeColors[theme].background);
-        root.style.setProperty('--text-color', themeColors[theme].text);
+        const colors = themeConfig[theme];
+
+        Object.entries(colors).forEach(([key, value]) => {
+            root.style.setProperty(`--${key}`, value);
+        });
     },
     addDownloadButton: function() {
         const button = document.createElement('button');
