@@ -100,7 +100,6 @@ window.terminal = {
         }
     },
 
-
     createTerminal: function() {
         const terminal = document.createElement('div');
         terminal.className = 'terminal';
@@ -124,7 +123,6 @@ window.terminal = {
         const output = terminal.querySelector('.terminal-output');
         const input = terminal.querySelector('.terminal-input');
 
-
         const writeOutput = (text, isCommand = false) => {
             const line = document.createElement('div');
             line.className = isCommand ? 'command-line' : 'output-line';
@@ -143,8 +141,6 @@ window.terminal = {
                 const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
                 const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
 
-
-
                 if (this.terminalCommands[cmd]) {
                     const result = await this.terminalCommands[cmd](text, passphrase);
                     writeOutput(result);
@@ -158,7 +154,6 @@ window.terminal = {
         });
 
         terminal.querySelector('.terminal-close').onclick = () => terminal.remove();
-
         writeOutput('Welcome to the Secure Terminal. Type "help" for available commands.');
         input.focus();
     },
@@ -167,20 +162,7 @@ window.terminal = {
         const button = document.createElement('button');
         button.className = 'terminal-toggle';
         button.innerHTML = '<i class="fas fa-terminal"></i>';
-
         button.onclick = () => this.createTerminal();
         document.body.appendChild(button);
     }
-
-
-
-
-
-
-
-
-
-
-
-
 };

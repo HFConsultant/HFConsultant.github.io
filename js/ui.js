@@ -91,44 +91,37 @@ window.ui = {
         };
 
         document.body.appendChild(button);
-    }
-};
+    },
 
-createTestimonials: function(testimonials) {
-    const slider = document.querySelector('.testimonials-slider');
-    slider.innerHTML = '';
-
-    testimonials.forEach(testimonial => {
-        const testimonialDiv = document.createElement('div');
-        testimonialDiv.className = 'testimonial';
-
-        testimonialDiv.innerHTML = `
-            <div class="testimonial-content">
-                <p class="quote">${testimonial.quote}</p>
-                <div class="author-info">
-                    <img src="${testimonial.avatar}" alt="${testimonial.name}" class="author-avatar">
-                    <div class="author-details">
-                        <h4>${testimonial.name}</h4>
-                        <p>${testimonial.position}</p>
+    renderSkills: function() {
+        const skillsContainer = document.getElementById('skills-container');
+        siteConfig.skills.forEach(skill => {
+            const skillElement = `
+                <div class="skill">
+                    <h3>${skill.name}</h3>
+                    <div class="progress-bar" data-percent="${skill.percent}">
+                        <div class="progress" style="width: ${skill.percent}%"></div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+            skillsContainer.innerHTML += skillElement;
+        });
+    },
 
-        slider.appendChild(testimonialDiv);
-    });
-},
-
-initTestimonialSlider: function() {
-    const testimonials = document.querySelectorAll('.testimonial');
-    let currentIndex = 0;
-
-    setInterval(() => {
-        testimonials[currentIndex].classList.remove('active');
-        currentIndex = (currentIndex + 1) % testimonials.length;
-        testimonials[currentIndex].classList.add('active');
-    }, 5000);
-}
+    renderTestimonials: function() {
+        const testimonialsContainer = document.querySelector('.testimonials-slider');
+        siteConfig.testimonials.forEach(testimonial => {
+            const testimonialElement = `
+                <div class="testimonial">
+                    <p class="quote">${testimonial.text}</p>
+                    <div class="author">${testimonial.author}</div>
+                    <div class="position">${testimonial.position}</div>
+                </div>
+            `;
+            testimonialsContainer.innerHTML += testimonialElement;
+        });
+    }
+};
 
 toggleTerminal: function() {
     const container = document.querySelector('.terminal-container');

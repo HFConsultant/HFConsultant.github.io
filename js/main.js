@@ -43,11 +43,9 @@ const observer = new IntersectionObserver(observerCallback, { threshold: 0.1 });
 
         // Initialize UI components
         ui.typeText(siteConfig);
-        ui.createSkillBars(siteConfig.skills);
-        ui.animateProgressBars(siteConfig.skills);
+        ui.renderSkills();
+        ui.renderTestimonials();
         ui.filterProjects('all', siteConfig.projects);
-        ui.createTestimonials(siteConfig.testimonials);
-        ui.initTestimonialSlider();
         ui.addDownloadButton();
         terminal.addTerminalButton();
 

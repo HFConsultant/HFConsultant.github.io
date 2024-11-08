@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 
 <head>
 	<meta charset="UTF-8">
@@ -87,12 +87,16 @@
 		<p>© <span id="current-year"></span> <span id="footer-name"></span>. All rights reserved.</p>
 	</footer>
 
-	<div id="terminal-container" class="terminal-container">
-		<div id="terminal" class="terminal">
-			<div id="terminal-output"></div>
+	<div class="terminal-container">
+		<div class="terminal">
+			<div class="terminal-header">
+				<span>Secure Terminal</span>
+				<button class="terminal-close">×</button>
+			</div>
+			<div class="terminal-output"></div>
 			<div class="terminal-input-line">
-				<span class="prompt">$</span>
-				<input type="text" id="terminal-input" autocomplete="off">
+				<span class="prompt">></span>
+				<input type="text" class="terminal-input" autofocus>
 			</div>
 		</div>
 	</div>
