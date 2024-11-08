@@ -21,10 +21,6 @@ const observer = new IntersectionObserver(observerCallback, { threshold: 0.1 });
 // Main initialization wrapped in IIFE for scoping
 (function() {
     document.addEventListener('DOMContentLoaded', function() {
-
-
-
-
         // Basic info
         document.getElementById('dev-name').textContent = window.siteConfig.name;
         document.getElementById('location').textContent = window.siteConfig.location;
@@ -78,15 +74,10 @@ const observer = new IntersectionObserver(observerCallback, { threshold: 0.1 });
         ui.addDownloadButton();
         terminal.addTerminalButton();
 
-
-
-
-
         // Theme initialization
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
         ui.applyTheme(savedTheme, siteConfig.theme);
-
     });
     // Event Listeners
     document.getElementById('theme-toggle').addEventListener('click', function() {
