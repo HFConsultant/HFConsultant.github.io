@@ -57,6 +57,19 @@ const observer = new IntersectionObserver(observerCallback, { threshold: 0.1 });
             projectsGrid.innerHTML += projectElement;
         });
 
+        // Testimonials section
+        const testimonialsSlider = document.querySelector('.testimonials-slider');
+        window.siteConfig.testimonials.forEach(testimonial => {
+        const testimonialElement = `
+            <div class="testimonial">
+                <p class="quote">${testimonial.text}</p>
+                <div class="author">${testimonial.author}</div>
+                <div class="position">${testimonial.position}</div>
+            </div>
+        `;
+        testimonialsSlider.innerHTML += testimonialElement;
+    });
+
         // Set social links
         const socials = ['github', 'linkedin', 'twitter'];
         socials.forEach(platform => {
