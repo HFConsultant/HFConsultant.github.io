@@ -129,3 +129,12 @@ initTestimonialSlider: function() {
         testimonials[currentIndex].classList.add('active');
     }, 5000);
 }
+
+toggleTerminal: function() {
+    const container = document.querySelector('.terminal-container');
+    container.classList.toggle('show');
+    const input = document.getElementById('terminal-input');
+    if (container.classList.contains('show')) {
+        input.focus();
+    }
+}
