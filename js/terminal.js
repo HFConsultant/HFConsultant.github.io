@@ -1,4 +1,10 @@
 window.terminal = {
+    state: {
+        mode: null, // 'encrypt' or 'decrypt'
+        step: 0,
+        data: {}
+    },
+
     terminalCommands: {
         help: function() {
             return `Available commands:
@@ -100,101 +106,77 @@ window.terminal = {
         }
     },
 
-    quickEncrypt: async function(text, passphrase) {
-        const pepper = prompt('Enter additional secret value (pepper):');
-        const result = await this.terminalCommands.encrypt(text, passphrase + pepper);
-        navigator.clipboard.writeText(result);
-        return result;
+    startEncryption: function() {
+        this.state.mode = 'encrypt';
+        this.state.step = 1;
+        this.writeOutput('Enter text to encrypt:');
     },
 
-    quickDecrypt: async function(hash, passphrase) {
-        const pepper = prompt('Enter additional secret value (pepper):');
-        return await this.terminalCommands.decrypt(hash, passphrase + pepper);
+    startDecryption: function() {
+        this.state.mode = 'decrypt';
+        this.state.step = 1;
+        this.writeOutput('Enter hash to decrypt:');
     },
 
-    initQuickActions: function() {
-        document.querySelector('.encrypt-btn').addEventListener('click', async () => {
-            const text = document.getElementById('quick-text').value;
-            const pass = document.getElementById('quick-pass').value;
-            const result = await this.quickEncrypt(text, pass);
-            this.writeOutput(result, false, true);
-        });
+    handleInput: async function(input) {
+        if (!this.state.mode) {
+            // Handle regular commands
+            return this.executeCommand(input);
+        }
 
-        document.querySelector('.decrypt-btn').addEventListener('click', async () => {
-            const hash = document.getElementById('quick-hash').value;
-            const pass = document.getElementById('quick-decrypt-pass').value;
-            const result = await this.quickDecrypt(hash, pass);
-            this.writeOutput(result);
-        });
+        switch(this.state.step) {
+            case 1:
+                this.state.data.text = input;
+                this.state.step = 2;
+                this.writeOutput('Enter passphrase:');
+                break;
+            case 2:
+                this.state.data.passphrase = input;
+                this.state.step = 3;
+                this.writeOutput('Enter pepper value:');
+                break;
+            case 3:
+                this.state.data.pepper = input;
+                // Process encryption/decryption
+                const result = this.state.mode === 'encrypt'
+                    ? await this.terminalCommands.encrypt(this.state.data.text, this.state.data.passphrase + this.state.data.pepper)
+                    : await this.terminalCommands.decrypt(this.state.data.text, this.state.data.passphrase + this.state.data.pepper);
+
+                this.writeOutput(result, false, this.state.mode === 'encrypt');
+                // Reset state
+                this.state.mode = null;
+                this.state.step = 0;
+                this.state.data = {};
+                break;
+        }
     },
 
     initTerminal: function() {
         const input = document.querySelector('.terminal-input');
         const output = document.querySelector('.terminal-output');
 
-        const writeOutput = (text, isCommand = false, isEncrypted = false) => {
-            const line = document.createElement('div');
-            line.className = isCommand ? 'command-line' : 'output-line';
+        document.getElementById('start-encrypt').addEventListener('click', () => {
+            this.startEncryption();
+        });
 
-            if (isEncrypted) {
-                const copyButton = document.createElement('button');
-                copyButton.className = 'copy-btn';
-                copyButton.innerHTML = '<i class="fas fa-copy"></i>';
-                copyButton.onclick = () => {
-                    navigator.clipboard.writeText(text);
-                    copyButton.innerHTML = '<i class="fas fa-check"></i>';
-                    setTimeout(() => copyButton.innerHTML = '<i class="fas fa-copy"></i>', 2000);
-                };
-                line.appendChild(copyButton);
-            }
-
-            line.appendChild(document.createTextNode(isCommand ? `> ${text}` : text));
-            output.appendChild(line);
-            output.scrollTop = output.scrollHeight;
-        };
-
-        // Handle example command clicks
-        document.querySelectorAll('.example-cmd').forEach(btn => {
-            btn.addEventListener('click', () => {
-                input.value = btn.textContent;
-                input.focus();
-            });
+        document.getElementById('start-decrypt').addEventListener('click', () => {
+            this.startDecryption();
         });
 
         input.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
                 const command = input.value.trim();
-                writeOutput(command, true);
-
-                const [cmd, ...args] = command.split(' ');
-                const pIndex = args.indexOf('-p');
-                const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
-                const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
-
-                const executeCommand = (cmd, args) => {
-                    const commands = {
-                        help: () => showHelp(),
-                        encrypt: (text, passphrase) => encryptText(text, passphrase),
-                        decrypt: (text, passphrase) => decryptText(text, passphrase),
-                        clear: () => clearTerminal()
-                    };
-
-                    return commands[cmd] ? commands[cmd](args) : 'Unknown command';
-                };
-
-                const result = await executeCommand(cmd, [text, passphrase]);
-                writeOutput(result, false, cmd === 'encrypt');
-
+                this.writeOutput(command, true);
+                await this.handleInput(command);
                 input.value = '';
                 output.scrollTop = output.scrollHeight;
             }
         });
 
-        writeOutput('Welcome to the Secure Terminal. Type "help" for available commands.');
+        this.writeOutput('Welcome to the Secure Terminal. Type "help" or click Start Encryption/Decryption.');
     }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
     window.terminal.initTerminal();
-    window.terminal.initQuickActions();
 });

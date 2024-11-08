@@ -35,26 +35,29 @@ body {
 }
 
 .terminal-header {
-	padding: 10px;
+	padding: 12px;
 	background: #333;
-	border-radius: 8px 8px 0 0;
+	border-radius: 6px 6px 0 0;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	color: #fff;
+	color: var(--primary-color);
+	font-weight: bold;
 }
 
 .terminal-output {
 	flex: 1;
-	padding: 10px;
+	padding: 15px;
 	overflow-y: auto;
 	color: var(--primary-color);
+	line-height: 1.5;
 }
 
 .terminal-input-line {
 	display: flex;
-	padding: 10px;
+	padding: 12px;
 	background: #262626;
+	border-radius: 0 0 6px 6px;
 }
 
 .terminal-input {
@@ -63,43 +66,38 @@ body {
 	border: none;
 	color: var(--primary-color);
 	font-family: monospace;
+	font-size: 16px;
 	outline: none;
 }
 
 .prompt {
 	color: var(--primary-color);
 	margin-right: 8px;
-}
-
-.terminal-close {
-	background: none;
-	border: none;
-	color: #fff;
-	cursor: pointer;
-	font-size: 1.2rem;
+	font-weight: bold;
 }
 
 .command-examples {
 	position: fixed;
-	bottom: 20px;
-	left: 20px;
+	bottom: 30px;
+	left: 30px;
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
-	z-index: 1000;
+	gap: 12px;
 }
 
 .example-cmd {
 	background: #333;
 	color: var(--primary-color);
 	border: 1px solid var(--primary-color);
-	padding: 8px 16px;
-	border-radius: 4px;
+	padding: 12px 20px;
+	border-radius: 6px;
 	cursor: pointer;
 	font-family: monospace;
+	font-size: 14px;
 	transition: all 0.2s ease;
-	text-align: left;
-	min-width: 280px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
 }
 
 .example-cmd:hover {
@@ -113,12 +111,26 @@ body {
 	border: none;
 	color: var(--primary-color);
 	cursor: pointer;
+	padding: 5px;
 	margin-right: 8px;
 	transition: transform 0.2s ease;
 }
 
 .copy-btn:hover {
 	transform: scale(1.1);
+}
+
+.terminal-close {
+	background: none;
+	border: none;
+	color: var(--text-color);
+	cursor: pointer;
+	font-size: 20px;
+	transition: color 0.2s ease;
+}
+
+.terminal-close:hover {
+	color: var(--primary-color);
 }
 
 .output-line {
