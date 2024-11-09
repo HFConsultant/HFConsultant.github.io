@@ -118,42 +118,29 @@ window.terminal = {
         writeOutput('How may I help you?');
         writeOutput("'e' for encrypt");
         writeOutput("'d' for decrypt");
-        writeOutput("'h' for help");
+        writeOutput("'c' for clear");
 
         input.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
                 const command = input.value.trim();
                 writeOutput(command, true);
-                if (!this.state.mode) {
-                    if (command === 'e') {
-                        this.state.mode = 'encrypt';
-                        writeOutput('Enter text to encrypt:');
-                    } else if (command === 'd') {
-                        this.state.mode = 'decrypt';
-                        writeOutput('Enter text to decrypt:');
-                    } else if (command === 'c') {
-                        document.querySelector('.terminal-output').innerHTML = '';
-                        writeOutput('How may I help you?');
-                        writeOutput("'e' for encrypt");
-                        writeOutput("'d' for decrypt");
-                        writeOutput("'c' for clear");
-                    }
-                }
-                } else if (!this.state.text) {
-                    this.state.text = command;
-                    writeOutput('Enter passphrase:');
-                } else {
-                    const result = this.state.mode === 'encrypt'
-                        ? await this.terminalCommands.encrypt(this.state.text, command)
-                        : await this.terminalCommands.decrypt(this.state.text, command);
 
-                    writeOutput(result);
-                    // Reset state
-                    this.state.mode = null;
-                    this.state.text = null;
-                    writeOutput("\nHow may I help you?");
+                if (command === 'c') {
+                    output.innerHTML = '';
+                    writeOutput('How may I help you?');
                     writeOutput("'e' for encrypt");
                     writeOutput("'d' for decrypt");
+                    writeOutput("'c' for clear");
+                } else {
+                    const [cmd, ...args] = command.split(' ');
+                    const pIndex = args.indexOf('-p');
+                    const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
+                    const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
+
+                    if (this.terminalCommands[cmd]) {
+                        const result = await this.terminalCommands[cmd](text, passphrase);
+                        writeOutput(result);
+                    }
                 }
 
                 input.value = '';
