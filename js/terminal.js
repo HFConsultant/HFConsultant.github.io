@@ -124,7 +124,6 @@ window.terminal = {
             if (e.key === 'Enter') {
                 const command = input.value.trim();
                 writeOutput(command, true);
-
                 if (!this.state.mode) {
                     if (command === 'e') {
                         this.state.mode = 'encrypt';
@@ -132,7 +131,14 @@ window.terminal = {
                     } else if (command === 'd') {
                         this.state.mode = 'decrypt';
                         writeOutput('Enter text to decrypt:');
+                    } else if (command === 'c') {
+                        document.querySelector('.terminal-output').innerHTML = '';
+                        writeOutput('How may I help you?');
+                        writeOutput("'e' for encrypt");
+                        writeOutput("'d' for decrypt");
+                        writeOutput("'c' for clear");
                     }
+                }
                 } else if (!this.state.text) {
                     this.state.text = command;
                     writeOutput('Enter passphrase:');
