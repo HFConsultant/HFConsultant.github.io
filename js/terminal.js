@@ -130,15 +130,29 @@ window.terminal = {
                 const command = input.value.trim();
                 writeOutput(command, true);
 
-                const [cmd, ...args] = command.split(' ');
-                const pIndex = args.indexOf('-p');
-                const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
-                const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
-                if (this.terminalCommands[cmd]) {
-                    const result = await this.terminalCommands[cmd](text, passphrase);
-                    writeOutput(result, false, cmd === 'encrypt');
-                } else {
-                    writeOutput('Unknown command. Type "help" for available commands.');
+                switch(command.toLowerCase()) {
+                    case 'e':
+                        this.state.mode = 'encrypt';
+                        writeOutput('Enter text to encrypt:');
+                        break;
+                    case 'd':
+                        this.state.mode = 'decrypt';
+                        writeOutput('Enter encrypted text:');
+                        break;
+                    case 'h':
+                        writeOutput(this.terminalCommands.help());
+                        break;
+                    default:
+                        const [cmd, ...args] = command.split(' ');
+                        const pIndex = args.indexOf('-p');
+                        const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
+                        const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
+                        if (this.terminalCommands[cmd]) {
+                            const result = await this.terminalCommands[cmd](text, passphrase);
+                            writeOutput(result, false, cmd === 'encrypt');
+                        } else {
+                            writeOutput('Unknown command. Type "help" for available commands.');
+                        }
                 }
 
                 input.value = '';
