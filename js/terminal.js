@@ -1,4 +1,9 @@
 window.terminal = {
+    state: {
+        mode: null,
+        text: null
+    },
+
     terminalCommands: {
         help: function() {
             return `How may I help you?
@@ -120,23 +125,29 @@ window.terminal = {
                 const command = input.value.trim();
                 writeOutput(command, true);
 
-                if (command === 'e') {
-                    writeOutput('Enter text to encrypt, then add -p yourpassword');
-                } else if (command === 'd') {
-                    writeOutput('Enter encrypted text to decrypt, then add -p yourpassword');
-                } else {
-                    // Handle existing command processing
-                    const [cmd, ...args] = command.split(' ');
-                    const pIndex = args.indexOf('-p');
-                    const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
-                    const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
-
-                    if (this.terminalCommands[cmd]) {
-                        const result = await this.terminalCommands[cmd](text, passphrase);
-                        writeOutput(result);
-                    } else {
-                        writeOutput("Type 'e' for encrypt, 'd' for decrypt, or 'h' for help");
+                if (!this.state.mode) {
+                    if (command === 'e') {
+                        this.state.mode = 'encrypt';
+                        writeOutput('Enter text to encrypt:');
+                    } else if (command === 'd') {
+                        this.state.mode = 'decrypt';
+                        writeOutput('Enter text to decrypt:');
                     }
+                } else if (!this.state.text) {
+                    this.state.text = command;
+                    writeOutput('Enter passphrase:');
+                } else {
+                    const result = this.state.mode === 'encrypt'
+                        ? await this.terminalCommands.encrypt(this.state.text, command)
+                        : await this.terminalCommands.decrypt(this.state.text, command);
+
+                    writeOutput(result);
+                    // Reset state
+                    this.state.mode = null;
+                    this.state.text = null;
+                    writeOutput("\nHow may I help you?");
+                    writeOutput("'e' for encrypt");
+                    writeOutput("'d' for decrypt");
                 }
 
                 input.value = '';
