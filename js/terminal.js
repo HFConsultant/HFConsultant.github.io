@@ -142,17 +142,7 @@ window.terminal = {
                     case 'h':
                         writeOutput(this.terminalCommands.help());
                         break;
-                    default:
-                        const [cmd, ...args] = command.split(' ');
-                        const pIndex = args.indexOf('-p');
-                        const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
-                        const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
-                        if (this.terminalCommands[cmd]) {
-                            const result = await this.terminalCommands[cmd](text, passphrase);
-                            writeOutput(result, false, cmd === 'encrypt');
-                        } else {
-                            writeOutput('Unknown command. Type "help" for available commands.');
-                        }
+                }
                 }
 
                 input.value = '';
@@ -160,8 +150,10 @@ window.terminal = {
             }
         });
 
-        writeOutput('Welcome to the Secure Terminal. Type "help" for available commands.');
-    }
+        writeOutput('How may I help you?');
+        writeOutput("'e' for encrypt");
+        writeOutput("'d' for decrypt");
+        writeOutput("'h' for help");    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
