@@ -1,13 +1,11 @@
 window.terminal = {
     terminalCommands: {
         help: function() {
-            return `Available commands:
-        encrypt <text> -p <passphrase> - Encrypt text with passphrase
-        decrypt <text> -p <passphrase> - Decrypt text with passphrase
-        clear - Clear terminal
-        exit - Close terminal`;
+            return `How may I help you?
+        'e' - Encrypt a message
+        'd' - Decrypt a message
+        'clear' - Clear terminal`;
         },
-
         encrypt: async function(text, passphrase) {
             const pepper = prompt('Enter additional secret value (pepper):');
             const combinedKey = passphrase + pepper;
@@ -104,56 +102,48 @@ window.terminal = {
         const input = document.querySelector('.terminal-input');
         const output = document.querySelector('.terminal-output');
 
-        const writeOutput = (text, isCommand = false, isEncrypted = false) => {
+        const writeOutput = (text, isCommand = false) => {
             const line = document.createElement('div');
             line.className = isCommand ? 'command-line' : 'output-line';
-
-            if (isEncrypted) {
-                const copyButton = document.createElement('button');
-                copyButton.className = 'copy-btn';
-                copyButton.innerHTML = '<i class="fas fa-copy"></i>';
-                copyButton.onclick = () => {
-                    navigator.clipboard.writeText(text);
-                    copyButton.innerHTML = '<i class="fas fa-check"></i>';
-                    setTimeout(() => copyButton.innerHTML = '<i class="fas fa-copy"></i>', 2000);
-                };
-                line.appendChild(copyButton);
-            }
-
-            line.appendChild(document.createTextNode(isCommand ? `> ${text}` : text));
+            line.textContent = isCommand ? `> ${text}` : text;
             output.appendChild(line);
             output.scrollTop = output.scrollHeight;
         };
+
+        writeOutput('How may I help you?');
+        writeOutput("'e' for encrypt");
+        writeOutput("'d' for decrypt");
+        writeOutput("'h' for help");
 
         input.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
                 const command = input.value.trim();
                 writeOutput(command, true);
 
-                switch(command.toLowerCase()) {
-                    case 'e':
-                        this.state.mode = 'encrypt';
-                        writeOutput('Enter text to encrypt:');
-                        break;
-                    case 'd':
-                        this.state.mode = 'decrypt';
-                        writeOutput('Enter encrypted text:');
-                        break;
-                    case 'h':
-                        writeOutput(this.terminalCommands.help());
-                        break;
-                }
+                if (command === 'e') {
+                    writeOutput('Enter text to encrypt, then add -p yourpassword');
+                } else if (command === 'd') {
+                    writeOutput('Enter encrypted text to decrypt, then add -p yourpassword');
+                } else {
+                    // Handle existing command processing
+                    const [cmd, ...args] = command.split(' ');
+                    const pIndex = args.indexOf('-p');
+                    const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
+                    const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
+
+                    if (this.terminalCommands[cmd]) {
+                        const result = await this.terminalCommands[cmd](text, passphrase);
+                        writeOutput(result);
+                    } else {
+                        writeOutput("Type 'e' for encrypt, 'd' for decrypt, or 'h' for help");
+                    }
                 }
 
                 input.value = '';
                 output.scrollTop = output.scrollHeight;
             }
         });
-
-        writeOutput('How may I help you?');
-        writeOutput("'e' for encrypt");
-        writeOutput("'d' for decrypt");
-        writeOutput("'h' for help");    }
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
