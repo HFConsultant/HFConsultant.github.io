@@ -137,11 +137,10 @@ window.terminal = {
             output.scrollTop = output.scrollHeight;
         };
 
-        writeOutput('How may I help you?');
+        writeOutput('Transform any text into memorable phrases');
         writeOutput("'e' for encrypt");
         writeOutput("'d' for decrypt");
         writeOutput("'c' for clear");
-
         input.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
                 const command = input.value.trim();

@@ -126,3 +126,16 @@ body {
 	background: rgba(0, 255, 157, 0.1);
 	border-radius: 4px;
 }
+
+@media screen and (max-width: 600px) {
+	.terminal {
+		height: 100vh;
+		width: 100vw;
+		border-radius: 0;
+	}
+
+	.terminal-input {
+		font-size: 16px;
+		/* Prevents zoom on iOS */
+	}
+}

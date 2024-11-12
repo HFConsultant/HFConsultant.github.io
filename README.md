@@ -1,25 +1,69 @@
 # Secure Terminal
 
-A sleek, browser-based encryption terminal using the Web Crypto API.
+A sleek, browser-based encryption terminal using the Web Crypto API. Built with vanilla JavaScript and designed with a modern dark theme.
 
 ## Features
-- AES-GCM encryption with PBKDF2 key derivation
+
+- Text encryption using AES-GCM
+- Secure key derivation with PBKDF2
 - Additional pepper value for enhanced security
-- Clean terminal interface with dark theme
-- Fully client-side processing
+- Clean terminal interface
+- Dark theme optimized
+- Copy button for encrypted text
+- Client-side only - no data transmission
 
-## Usage
-1. Type 'help' to see available commands
-2. To encrypt: `encrypt Hello World -p mypassword`
-3. To decrypt: `decrypt <encrypted-text> -p mypassword`
-4. Enter pepper value when prompted
+## Use Cases
 
-## Commands
-help                            # Show available commands
-encrypt <text> -p <passphrase>  # Encrypt text with passphrase
-decrypt <text> -p <passphrase>  # Decrypt text with passphrase
-clear                          # Clear terminal
-exit                           # Close terminal
+### Crypto Wallet Security
+Transform wallet seed phrases into memorable sentences:
+	Wallet Phrase: "wagon rhythm exotic stand lens fortune brief grain siren wheel trophy blind"
+	Encryption Phrase: "My dog Rex ate pizza in Paris last summer while watching the sunset"
+	Pepper: "2019"
 
-## Technology
-Built with vanilla JavaScript and the Web Crypto API, featuring modern CSS styling.
+### Password Management
+Create memorable master passwords:
+	Original: "correcthorsebatterystaple"
+	Encryption Phrase: "I saw 4 random words on XKCD once!"
+	Pepper: "comic936"
+
+### Secure Communication
+Share sensitive information through public channels:
+	Original: "Meeting at 3pm to discuss merger"
+	Encryption Phrase: "Going fishing with grandpa"
+	Pepper: "boardroom"
+
+### Personal Journal Entries
+Keep private thoughts secure with personal memory triggers:
+	Original: "Dear Diary..."
+	Encryption Phrase: "Today's grocery list"
+	Pepper: "childhood street name"
+
+## Quick Start
+
+1. Type 'e' to encrypt
+2. Enter your text
+3. Enter your passphrase
+4. Add your pepper value
+5. Copy the encrypted result
+
+To decrypt:
+1. Type 'd' to decrypt
+2. Paste the encrypted text
+3. Enter the same passphrase
+4. Enter the same pepper value
+
+Clear the terminal anytime with 'c'
+
+## Security Notes
+
+- The pepper acts as an additional secret key
+- All encryption happens in your browser
+- No data is stored or transmitted
+- Uses modern Web Crypto API standards
+
+## Technical Details
+
+- AES-GCM encryption
+- PBKDF2 key derivation
+- 256-bit encryption keys
+- 100,000 PBKDF2 iterations
