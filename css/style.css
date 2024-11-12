@@ -104,3 +104,25 @@ body {
 ::-webkit-scrollbar-thumb:hover {
 	background: rgba(0, 255, 157, 0.8);
 }
+
+.copy-btn {
+	background: none;
+	border: none;
+	color: var(--primary-color);
+	cursor: pointer;
+	padding: 5px;
+	margin-right: 8px;
+	transition: transform 0.2s ease;
+}
+
+.copy-btn:hover {
+	transform: scale(1.1);
+}
+
+.encrypted-text {
+	word-break: break-all;
+	font-family: monospace;
+	padding: 8px;
+	background: rgba(0, 255, 157, 0.1);
+	border-radius: 4px;
+}

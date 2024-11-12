@@ -110,10 +110,29 @@ window.terminal = {
         const input = document.querySelector('.terminal-input');
         const output = document.querySelector('.terminal-output');
 
-        const writeOutput = (text, isCommand = false) => {
+        const writeOutput = (text, isCommand = false, isEncrypted = false) => {
             const line = document.createElement('div');
             line.className = isCommand ? 'command-line' : 'output-line';
-            line.textContent = isCommand ? `> ${text}` : text;
+
+            if (isEncrypted) {
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-btn';
+                copyButton.innerHTML = '<i class="fas fa-copy"></i>';
+                copyButton.onclick = () => {
+                    navigator.clipboard.writeText(text);
+                    copyButton.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => {
+                        copyButton.innerHTML = '<i class="fas fa-copy"></i>';
+                    }, 2000);
+                };
+                line.appendChild(copyButton);
+            }
+
+            const textNode = document.createElement('span');
+            textNode.textContent = isCommand ? `> ${text}` : text;
+            textNode.className = isEncrypted ? 'encrypted-text' : '';
+            line.appendChild(textNode);
+
             output.appendChild(line);
             output.scrollTop = output.scrollHeight;
         };
@@ -147,7 +166,7 @@ window.terminal = {
                                 this.state.data.text,
                                 command
                             );
-                            writeOutput(result);
+                            writeOutput(result, false, this.state.mode === 'encrypt');
                             this.state.mode = null;
                             this.state.step = 0;
                             this.state.data = {};
