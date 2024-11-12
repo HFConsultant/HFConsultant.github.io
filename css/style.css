@@ -139,11 +139,6 @@ body {
 		left: 0;
 	}
 
-	.terminal-output {
-		padding-bottom: 60px;
-		/* Space for input area */
-	}
-
 	.terminal-input-line {
 		position: fixed;
 		bottom: 0;
