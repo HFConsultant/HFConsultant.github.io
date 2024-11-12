@@ -131,7 +131,10 @@ body {
 	.terminal {
 		width: 100vw;
 		height: 100%;
-		overflow: hidden;
+		border-radius: 0;
+		position: fixed;
+		top: 0;
+		left: 0;
 	}
 
 	.terminal-output {
@@ -139,6 +142,9 @@ body {
 		height: auto;
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
+		line-height: 1.2;
+		margin: 0;
+		padding: 4px;
 	}
 
 	.terminal-input-line {
