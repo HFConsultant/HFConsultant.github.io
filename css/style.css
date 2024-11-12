@@ -129,31 +129,23 @@ body {
 
 @media screen and (max-width: 600px) {
 	.terminal {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
 		width: 100vw;
-		border-radius: 0;
-		position: fixed;
-		top: 0;
-		left: 0;
+		height: 100%;
+		overflow: hidden;
 	}
 
 	.terminal-output {
 		width: 100%;
 		height: auto;
-		min-height: fit-content;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.terminal-input-line {
 		position: fixed;
-		bottom: 0;
+		bottom: env(safe-area-inset-bottom, 0);
 		width: 100%;
 		background: var(--terminal-bg);
 		z-index: 1000;
-	}
-
-	.terminal-input {
-		font-size: 16px;
 	}
 }
