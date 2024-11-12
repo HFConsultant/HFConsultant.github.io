@@ -134,7 +134,7 @@ window.terminal = {
             line.appendChild(textNode);
 
             output.appendChild(line);
-            output.scrollTop = output.scrollHeight;
+            line.scrollIntoView({ behavior: 'smooth', block: 'end' });
         };
 
         writeOutput('Transform any text into memorable phrases');

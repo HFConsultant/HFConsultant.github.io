@@ -129,26 +129,31 @@ body {
 
 @media screen and (max-width: 600px) {
 	.terminal {
-		height: -webkit-fill-available;
-		min-height: 100vh;
-		max-height: 100vh;
+		height: 100vh;
 		width: 100vw;
 		border-radius: 0;
 		position: fixed;
 		top: 0;
 		left: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.terminal-output {
+		flex: 1;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.terminal-input-line {
-		position: fixed;
+		position: sticky;
 		bottom: 0;
-		left: 0;
 		width: 100%;
 		background: var(--terminal-bg);
+		border-top: 1px solid var(--primary-color);
 	}
 
 	.terminal-input {
 		font-size: 16px;
-		/* Prevents zoom on iOS */
 	}
 }
