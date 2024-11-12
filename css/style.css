@@ -130,28 +130,27 @@ body {
 @media screen and (max-width: 600px) {
 	.terminal {
 		height: 100vh;
+		height: -webkit-fill-available;
 		width: 100vw;
 		border-radius: 0;
 		position: fixed;
 		top: 0;
 		left: 0;
-		display: flex;
-		flex-direction: column;
 	}
 
 	.terminal-output {
-		flex: 1;
+		height: calc(100vh - 60px);
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
 	}
 
 	.terminal-input-line {
+		height: 60px;
 		position: fixed;
 		bottom: 0;
 		left: 0;
 		width: 100%;
 		background: var(--terminal-bg);
-		border-top: 1px solid var(--primary-color);
 		z-index: 1000;
 	}
 
