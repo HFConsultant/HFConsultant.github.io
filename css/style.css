@@ -140,17 +140,14 @@ body {
 	}
 
 	.terminal-output {
-		flex: 1;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
+		width: 100%;
+		height: auto;
+		min-height: fit-content;
 	}
 
 	.terminal-input-line {
-		flex-shrink: 0;
-		height: 60px;
 		position: fixed;
 		bottom: 0;
-		left: 0;
 		width: 100%;
 		background: var(--terminal-bg);
 		z-index: 1000;
