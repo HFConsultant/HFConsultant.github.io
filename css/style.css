@@ -146,11 +146,13 @@ body {
 	}
 
 	.terminal-input-line {
-		position: sticky;
+		position: fixed;
 		bottom: 0;
+		left: 0;
 		width: 100%;
 		background: var(--terminal-bg);
 		border-top: 1px solid var(--primary-color);
+		z-index: 1000;
 	}
 
 	.terminal-input {
