@@ -129,8 +129,9 @@ body {
 
 @media screen and (max-width: 600px) {
 	.terminal {
-		height: 100vh;
-		height: -webkit-fill-available;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
 		width: 100vw;
 		border-radius: 0;
 		position: fixed;
@@ -139,12 +140,13 @@ body {
 	}
 
 	.terminal-output {
-		height: calc(100vh - 60px);
+		flex: 1;
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
 	}
 
 	.terminal-input-line {
+		flex-shrink: 0;
 		height: 60px;
 		position: fixed;
 		bottom: 0;
