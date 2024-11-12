@@ -1,16 +1,11 @@
 window.terminal = {
     state: {
         mode: null,
-        text: null
+        step: 0,
+        data: {}
     },
 
     terminalCommands: {
-        help: function() {
-            return `How may I help you?
-        'e' - Encrypt a message
-        'd' - Decrypt a message
-        'clear' - Clear terminal`;
-        },
         encrypt: async function(text, passphrase) {
             const pepper = prompt('Enter additional secret value (pepper):');
             const combinedKey = passphrase + pepper;
@@ -103,6 +98,14 @@ window.terminal = {
         }
     },
 
+    handleCommand: function(command) {
+        if (command === 'c') {
+            document.querySelector('.terminal-output').innerHTML = '';
+            return true;
+        }
+        return false;
+    },
+
     initTerminal: function() {
         const input = document.querySelector('.terminal-input');
         const output = document.querySelector('.terminal-output');
@@ -125,21 +128,30 @@ window.terminal = {
                 const command = input.value.trim();
                 writeOutput(command, true);
 
-                if (command === 'c') {
-                    output.innerHTML = '';
-                    writeOutput('How may I help you?');
-                    writeOutput("'e' for encrypt");
-                    writeOutput("'d' for decrypt");
-                    writeOutput("'c' for clear");
-                } else {
-                    const [cmd, ...args] = command.split(' ');
-                    const pIndex = args.indexOf('-p');
-                    const passphrase = pIndex !== -1 ? args[pIndex + 1] : '';
-                    const text = args.slice(0, pIndex !== -1 ? pIndex : undefined).join(' ');
-
-                    if (this.terminalCommands[cmd]) {
-                        const result = await this.terminalCommands[cmd](text, passphrase);
-                        writeOutput(result);
+                if (!this.handleCommand(command)) {
+                    if (command === 'e') {
+                        this.state.mode = 'encrypt';
+                        this.state.step = 1;
+                        writeOutput('Enter text to encrypt:');
+                    } else if (command === 'd') {
+                        this.state.mode = 'decrypt';
+                        this.state.step = 1;
+                        writeOutput('Enter text to decrypt:');
+                    } else if (this.state.mode) {
+                        if (this.state.step === 1) {
+                            this.state.data.text = command;
+                            this.state.step = 2;
+                            writeOutput('Enter passphrase:');
+                        } else if (this.state.step === 2) {
+                            const result = await this.terminalCommands[this.state.mode](
+                                this.state.data.text,
+                                command
+                            );
+                            writeOutput(result);
+                            this.state.mode = null;
+                            this.state.step = 0;
+                            this.state.data = {};
+                        }
                     }
                 }
 
