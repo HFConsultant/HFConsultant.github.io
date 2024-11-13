@@ -7,8 +7,8 @@ window.terminal = {
 
     terminalCommands: {
         encrypt: async function(text, passphrase) {
-            const pepper = prompt('Enter additional secret value (pepper):');
-            const combinedKey = passphrase + pepper;
+            const pepper = prompt('Enter additional secret value (pepper) or press Cancel to skip:');
+            const combinedKey = pepper ? passphrase + pepper : passphrase;
             const encoder = new TextEncoder();
             const data = encoder.encode(text);
 
@@ -53,8 +53,8 @@ window.terminal = {
         },
 
         decrypt: async function(encryptedText, passphrase) {
-            const pepper = prompt('Enter additional secret value (pepper):');
-            const combinedKey = passphrase + pepper;
+            const pepper = prompt('Enter additional secret value (pepper) if one was used:');
+            const combinedKey = pepper ? passphrase + pepper : passphrase;
 
             try {
                 const { salt, iv, data } = JSON.parse(atob(encryptedText));
