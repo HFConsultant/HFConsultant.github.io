@@ -137,10 +137,14 @@ body {
 	.terminal-output {
 		width: 100%;
 		height: auto;
+		min-height: min-content;
 		overflow-y: auto;
 		line-height: 1.2;
-		margin: 0;
-		padding: 4px;
+	}
+
+	.terminal-output>div {
+		display: block;
+		width: 100%;
 	}
 
 	.terminal-input-line {
