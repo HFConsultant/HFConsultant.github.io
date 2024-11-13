@@ -158,3 +158,14 @@ body {
 		border-top: 1px solid var(--primary-color);
 	}
 }
+
+@media screen and (min-width: 601px) and (max-width: 1024px) {
+	.terminal {
+		height: 90vh;
+		width: 90vw;
+	}
+
+	.terminal-output {
+		height: calc(90vh - 120px);
+	}
+}
