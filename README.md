@@ -54,6 +54,13 @@ To decrypt:
 
 Clear the terminal anytime with 'c'
 
+## Installation
+
+1. Visit [Secure Terminal](https://hfconsultant.github.io)
+2. On mobile: Tap 'Add to Home Screen'
+3. On desktop: Click install icon in browser address bar
+4. Use offline anytime after installation
+
 ## Security Notes
 
 - The pepper acts as an additional secret key
