@@ -130,9 +130,7 @@ body {
 @media screen and (max-width: 600px) {
 	.terminal {
 		width: 100vw;
-
-		min-height: 100vh;
-		max-height: 100vh;
+		height: auto;
 		border-radius: 0;
 	}
 
@@ -148,8 +146,6 @@ body {
 	.terminal-input-line {
 		width: 100%;
 		background: var(--terminal-bg);
-
 		border-top: 1px solid var(--primary-color);
 	}
-
 }
