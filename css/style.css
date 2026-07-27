@@ -1,9 +1,23 @@
+/*
+ * Secure Terminal — styles.
+ *
+ * Layout uses dvh units so the terminal fills the visible viewport on mobile
+ * without fighting the browser chrome, which is what the old stack of
+ * height-based media queries was working around.
+ */
+
 :root {
-	--bg-color: #0a0a0a;
-	--terminal-bg: #1a1a1a;
-	--text-color: #f0f0f0;
-	--primary-color: #00ff9d;
-	--glow-color: rgba(0, 255, 157, 0.2);
+	--bg: #0a0a0a;
+	--terminal-bg: #141414;
+	--surface: rgba(255, 255, 255, 0.04);
+	--text: #e8e8e8;
+	--muted: #8a8a8a;
+	--primary: #00ff9d;
+	--warn: #ffcc55;
+	--error: #ff6b6b;
+	--glow: rgba(0, 255, 157, 0.18);
+	--mono: 'SF Mono', 'Cascadia Mono', 'Fira Mono', 'DejaVu Sans Mono', 'Courier New', monospace;
+	--radius: 10px;
 }
 
 * {
@@ -13,79 +27,220 @@
 }
 
 body {
-	background-color: var(--bg-color);
-	color: var(--text-color);
-	font-family: 'Courier New', monospace;
-	height: 100vh;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--mono);
+	font-size: 16px;
+	line-height: 1.5;
+	min-height: 100dvh;
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	padding: 2rem 1rem;
+	-webkit-text-size-adjust: 100%;
 }
 
+/* ------------------------------------------------------------- terminal */
+
 .terminal {
-	width: 90vw;
+	width: 100%;
 	max-width: 900px;
-	height: 600px;
+	height: min(680px, calc(100dvh - 4rem));
 	background: var(--terminal-bg);
-	border: 2px solid var(--primary-color);
-	border-radius: 10px;
-	box-shadow: 0 0 20px var(--glow-color);
+	border: 1px solid var(--primary);
+	border-radius: var(--radius);
+	box-shadow: 0 0 32px var(--glow);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
 }
 
 .terminal-header {
-	padding: 15px 20px;
-	background: rgba(0, 0, 0, 0.3);
-	border-bottom: 1px solid var(--primary-color);
+	padding: 0.85rem 1.25rem;
+	background: rgba(0, 0, 0, 0.35);
+	border-bottom: 1px solid rgba(0, 255, 157, 0.35);
+	flex-shrink: 0;
 }
 
-.terminal-header span {
-	color: var(--primary-color);
-	font-weight: bold;
-	font-size: 1.1em;
+.terminal-header h1 {
+	color: var(--primary);
+	font-size: 1rem;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+
+.terminal-subtitle {
+	color: var(--muted);
+	font-size: 0.75rem;
+	margin-top: 0.15rem;
 }
 
 .terminal-output {
 	flex: 1;
-	padding: 20px;
+	min-height: 0;
+	padding: 1.25rem;
 	overflow-y: auto;
-	font-size: 1em;
-	line-height: 1.5;
+	overflow-wrap: anywhere;
+	scrollbar-gutter: stable;
 }
+
+.terminal-output:focus-visible {
+	outline: 1px solid var(--primary);
+	outline-offset: -1px;
+}
+
+/* --------------------------------------------------------------- lines */
+
+.line {
+	margin: 0.2rem 0;
+	white-space: pre-wrap;
+}
+
+.line--command {
+	color: var(--primary);
+}
+
+.line--prompt {
+	color: var(--text);
+	font-weight: 700;
+	margin-top: 0.5rem;
+}
+
+.line--ok {
+	color: var(--primary);
+}
+
+.line--muted {
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.line--warn {
+	color: var(--warn);
+}
+
+.line--error {
+	color: var(--error);
+}
+
+.line--result {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	margin: 0.5rem 0;
+}
+
+.result-text {
+	flex: 1;
+	padding: 0.6rem 0.75rem;
+	background: var(--surface);
+	border-left: 2px solid var(--primary);
+	border-radius: 0 4px 4px 0;
+	overflow-wrap: anywhere;
+	user-select: all;
+}
+
+/* ---------------------------------------------------------------- input */
 
 .terminal-input-line {
 	display: flex;
 	align-items: center;
-	padding: 15px 20px;
-	background: rgba(0, 0, 0, 0.2);
+	gap: 0.5rem;
+	padding: 0.85rem 1.25rem;
+	background: rgba(0, 0, 0, 0.3);
+	border-top: 1px solid rgba(0, 255, 157, 0.35);
+	flex-shrink: 0;
+	padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+}
+
+/*
+ * The label is announced to screen readers and updates as the prompt changes
+ * ("Passphrase:", "Pepper:"), but the visible cue is the > character and the
+ * line printed above, so it is hidden visually rather than duplicated.
+ */
+.terminal-label {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 .prompt {
-	color: var(--primary-color);
-	margin-right: 10px;
-	font-weight: bold;
+	color: var(--primary);
+	font-weight: 700;
+	flex-shrink: 0;
 }
 
 .terminal-input {
 	flex: 1;
+	min-width: 0;
 	background: transparent;
 	border: none;
-	color: var(--text-color);
-	font-family: 'Courier New', monospace;
-	font-size: 1em;
+	color: var(--text);
+	font-family: var(--mono);
+	font-size: 1rem;
 	outline: none;
 }
 
-.output-line {
-	margin: 5px 0;
-	color: var(--text-color);
+.terminal-input::placeholder {
+	color: var(--muted);
+	opacity: 0.7;
 }
 
-.command-line {
-	color: var(--primary-color);
-	margin: 5px 0;
+.terminal-input:focus-visible {
+	outline: none;
+}
+
+/* -------------------------------------------------------------- buttons */
+
+.copy-btn,
+.submit-btn {
+	background: none;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	color: var(--primary);
+	cursor: pointer;
+	font-family: var(--mono);
+	font-size: 1rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	/* 44px keeps the tap target above the WCAG 2.5.5 minimum. */
+	min-width: 44px;
+	min-height: 44px;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.copy-btn svg {
+	width: 18px;
+	height: 18px;
+	fill: currentColor;
+}
+
+.copy-btn:hover,
+.submit-btn:hover {
+	background: var(--surface);
+}
+
+.copy-btn:focus-visible,
+.submit-btn:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+
+.copy-btn--done {
+	color: var(--primary);
+	background: rgba(0, 255, 157, 0.12);
+}
+
+/* ------------------------------------------------------------ scrollbar */
+
+.terminal-output {
+	scrollbar-color: var(--primary) var(--terminal-bg);
+	scrollbar-width: thin;
 }
 
 ::-webkit-scrollbar {
@@ -97,75 +252,71 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-	background: var(--primary-color);
+	background: var(--primary);
 	border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-	background: rgba(0, 255, 157, 0.8);
+/* -------------------------------------------------------------- noscript */
+
+.noscript {
+	position: fixed;
+	inset: auto 1rem 1rem;
+	max-width: 900px;
+	margin: 0 auto;
+	padding: 1rem;
+	background: var(--terminal-bg);
+	border: 1px solid var(--error);
+	border-radius: var(--radius);
+	color: var(--error);
 }
 
-.copy-btn {
-	background: none;
-	border: none;
-	color: var(--primary-color);
-	cursor: pointer;
-	padding: 5px;
-	margin-right: 8px;
-	transition: transform 0.2s ease;
-}
+/* ---------------------------------------------------------- small screens */
 
-.copy-btn:hover {
-	transform: scale(1.1);
-}
-
-.encrypted-text {
-	word-break: break-all;
-	font-family: monospace;
-	padding: 8px;
-	background: rgba(0, 255, 157, 0.1);
-	border-radius: 4px;
-}
-
-@media screen and (max-width: 600px) {
+@media (max-width: 640px) {
 	body {
-		display: block;
-		height: auto;
+		padding: 0;
+		align-items: stretch;
 	}
 
 	.terminal {
-		width: 100vw;
-		height: auto;
+		height: 100dvh;
+		max-width: none;
+		border: none;
 		border-radius: 0;
+		box-shadow: none;
 	}
 
 	.terminal-output {
-		width: 100%;
-		height: auto;
-		min-height: min-content;
-		overflow-y: auto;
-		line-height: 1.2;
-	}
-
-	.terminal-output>div {
-		display: block;
-		width: 100%;
+		padding: 1rem;
 	}
 
 	.terminal-input-line {
-		width: 100%;
-		background: var(--terminal-bg);
-		border-top: 1px solid var(--primary-color);
+		padding-left: 1rem;
+		padding-right: 1rem;
+	}
+
+	/* 16px prevents iOS Safari from zooming the page when the field is focused. */
+	.terminal-input {
+		font-size: 16px;
 	}
 }
 
-@media screen and (max-height: 600px) and (min-width: 601px) {
-	.terminal {
-		height: 90vh;
-		width: 90vw;
-	}
+/* --------------------------------------------------------- accessibility */
 
-	.terminal-output {
-		height: calc(90vh - 120px);
+@media (prefers-reduced-motion: reduce) {
+
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+@media (prefers-contrast: more) {
+	:root {
+		--muted: #b8b8b8;
+		--text: #ffffff;
 	}
 }
