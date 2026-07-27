@@ -1,22 +1,36 @@
 # Secure Terminal
 
-**Turn something you must not lose into something you cannot read — using a
-phrase you will never forget.**
+**Turn something you must not lose into something nobody can read — using a
+phrase you could never forget.**
 
 A terminal-style web app and a matching CLI that encrypt text entirely on your
-own machine. No server, no account, no storage, no analytics. Install it once
-and it works offline.
+own machine. No server, no account, no storage, no analytics. Install it once and
+it works offline.
 
 ## Live Demo
 
 [View my project here](https://hfconsultant.github.io/)
 
+## What do you want to do?
+
+| I want to… | Do this |
+| ---------- | ------- |
+| Store a wallet seed phrase safely | Open the [web app](https://hfconsultant.github.io/), press `e` |
+| Send a teammate my `.env` | `secure-term encrypt .env -o .env.enc` |
+| Share secrets across a whole project | `secure-term init`, then `secure-term run -- npm run dev` |
+| Never lose my project key | `secure-term backup` |
+| Get a lost key back | `secure-term restore` |
+| Understand the limits | `secure-term help limits` |
+
+```bash
+npx secure-term --help     # nothing to install
+```
+
 ## The idea
 
-Some things have to be written down, and writing them down is the whole
-problem. A crypto wallet's twelve-word recovery phrase is the clearest example:
-it must be stored somewhere, and anywhere you store it as plain text is a
-place someone can find it.
+Some things have to be written down, and writing them down is the whole problem.
+A wallet's twelve-word recovery phrase is the clearest case: it must be stored
+somewhere, and anywhere you store it as plain text is somewhere it can be found.
 
 So don't store it as plain text. Encrypt it with **a sentence you could not
 forget if you tried**, plus a personal detail nobody else knows:
@@ -27,79 +41,50 @@ Passphrase:     My dog Rex ate pizza in Paris last summer
 Pepper:         2019
 ```
 
-What comes out is unintelligible, and now it is safe to put somewhere unsafe —
-a notes app, a printed page, cloud storage, a photo in your camera roll. To get
-the wallet back, paste it in and supply the same sentence and the same detail.
+What comes out is meaningless, and now it is safe to keep somewhere unsafe — a
+notes app, a printed page, cloud storage, a photo in your camera roll. To get the
+wallet back, paste it in and supply the same sentence and the same detail.
 
-**Nothing memorable is ever stored. The memorable part is the key, not the
-output** — it stays in your head, and there is no copy of it anywhere.
+**Nothing memorable is ever stored.** The memorable part is the *key*, not the
+output; it stays in your head, and no copy of it exists anywhere.
 
-## What else it is good for
+The **pepper** is that optional second secret. It helps when the passphrase is
+something you could be persuaded or compelled to reveal, since a pepper can be a
+detail that was never typed anywhere. It is not a backup — lose either half and
+the text is gone, permanently and by design.
 
-The same shape solves a problem developers hit constantly: **a teammate needs
-your `.env` and there is no safe way to send it.** Pasting live credentials into
-Slack puts them in a searchable archive forever.
+## The web app
 
-```bash
-secure-term encrypt .env -o .env.enc
-```
+Type `e`, give it your text and a passphrase, and you get a payload back. Type
+`d`, paste it with the same passphrase, and your text returns. That is the whole
+application.
 
-Send `.env.enc` through Slack. Tell them the passphrase on a call — not in the
-same channel. On their end:
+| Command | Does |
+| ------- | ---- |
+| `e` | Encrypt — paste as many lines as you like |
+| `d` | Decrypt a payload |
+| `c` | Clear the screen |
+| `h` | Help |
+| `about` | How it works, and what it does not protect against |
+| `Esc` | Cancel the current step |
+| `↑` `↓` | Previous commands |
 
-```bash
-secure-term decrypt .env.enc -o .env
-```
+You can also **drag a file onto the window** — a `.env` gets encrypted, a `.enc`
+gets opened. The file is read in the browser and goes nowhere.
 
-Also useful for: sending a password to a colleague, keeping journal entries or
-notes private, storing recovery codes, and putting anything sensitive through a
-channel you do not fully trust.
-
-See [`docs/scanners.md`](docs/scanners.md) for keeping encrypted payloads from
-tripping gitleaks and similar tools.
-
-## What it looks like
-
-Type `e`, give it your text and a passphrase, and you get back a payload:
-
-```
-STv1.600000.WGo4u3ng….YkgymM….odYexKpVxxg…
-```
-
-Type `d`, paste it back with the same passphrase, and your text returns. That
-is the whole application.
-
-### Commands
-
-| Command | Does                                                    |
-| ------- | ------------------------------------------------------- |
-| `e`     | Encrypt some text — paste as many lines as you like     |
-| `d`     | Decrypt a payload                                       |
-| `c`     | Clear the screen                                        |
-| `h`     | Show help                                               |
-| `about` | How it works, and what it does not protect against      |
-| `Esc`   | Cancel the current step                                 |
-| `↑` `↓` | Previous commands                                       |
-
-You can also **drag a file straight onto the window**. A `.env` is read and
-encrypted; a `.enc` is recognised and decrypted. The file is read in the
-browser and goes nowhere.
-
-When the content looks like a `.env`, the app reports the variable **names** it
-found and never the values — so you can confirm you have the right file with
-someone watching your screen.
+When content looks like a `.env`, the app lists the variable **names** it found
+and never the values, so you can confirm you have the right file with someone
+watching your screen.
 
 ## The command line
 
-Same encryption, same payload format, same core module — a payload made on your
-phone opens in your terminal and vice versa.
+Same encryption, same format, same core module — a payload made on your phone
+opens in your terminal and vice versa.
 
 ```bash
 npx secure-term --help          # no install
 npm install -g secure-term      # or keep it around
 ```
-
-Needs Node 20 or newer. Zero dependencies — the whole package is about 21 kB.
 
 ```bash
 secure-term encrypt .env -o .env.enc     # scramble a file
@@ -108,60 +93,91 @@ cat .env | secure-term encrypt | pbcopy  # straight to the clipboard
 secure-term decrypt .env.enc | grep DATABASE_URL
 ```
 
-The payload is the only thing written to stdout — every prompt and message goes
-to stderr — so it composes properly in a pipeline.
+Needs Node 20 or newer. Zero dependencies; the published package is 40 kB.
+
+The payload is the only thing on stdout — prompts and messages go to stderr — so
+it composes in a pipeline. There is deliberately **no `--passphrase` flag**:
+anything on a command line shows up in `ps` and in shell history. For automation,
+set `SECURE_TERM_PASSPHRASE`.
 
 `secure-term --help` leads with worked examples before the options table, and
-`secure-term help <topic>` covers `pepper`, `sharing`, `scanners`, `env` and
-`format` in depth. There is deliberately **no `--passphrase` flag**: anything on
-the command line shows up in `ps` and in shell history. For automation, set
-`SECURE_TERM_PASSPHRASE` in the environment.
+`secure-term help <topic>` goes deeper on `project`, `backup`, `pepper`,
+`sharing`, `scanners`, `env`, `format` and `limits`.
 
-## Using it in a project — any framework
+## In a project — any framework
 
-Rails solves the committed-secrets problem with `config/master.key`: the
-encrypted file is committed, the key is not. That pattern is good, and there is
-nothing Rails-specific about it. Here it is, for anything:
+Rails solves committed secrets with `config/master.key`: the encrypted file is
+committed, the key is not. Nothing about that is Rails-specific.
 
 ```bash
 secure-term init                      # generate a project key, gitignore it
 secure-term encrypt .env -o .env.enc  # commit .env.enc — never .env
 secure-term run -- npm run dev        # run with the secrets loaded
 secure-term edit .env.enc             # change them in $EDITOR
-secure-term backup                    # seal the key with a memorable phrase
 ```
 
 After `init`, every command finds the key automatically. Nobody types a
 passphrase again.
 
-| File                | In git?           | What it is                            |
-| ------------------- | ----------------- | ------------------------------------- |
-| `.secure-term.key`  | **never**         | 32 random bytes, mode 0600            |
-| `.env.enc`          | **yes**           | useless without the key               |
-| `.env`              | **never**         | no longer needed at all               |
+| File | In git? | What it is |
+| ---- | ------- | ---------- |
+| `.secure-term.key` | **never** | 32 random bytes, mode 0600 |
+| `.env.enc` | **yes** | useless without the key |
+| `.env` | **never** | no longer needed at all |
 
-### Why committing the encrypted file is safe here
+**Why committing the encrypted file is safe here**, when this README otherwise
+says payloads belong in chat: that advice is right for a passphrase *you chose*,
+because committed ciphertext can be attacked offline for as long as the
+repository exists. A key from `init` is 32 bytes of system randomness, and there
+is no guessing attack against 256 bits. That is why `init` **generates** a key
+rather than asking you to invent one.
 
-Elsewhere this README says payloads belong in chat, not in git — and that is
-right *for a passphrase you chose*, because committed ciphertext can be
-attacked offline for as long as the repository exists.
+### One line, every framework
 
-A key from `init` is different: 32 bytes from the system random source, not a
-phrase anyone invented. There is no guessing attack against 256 bits of
-entropy. Same reasoning Rails relies on, and the reason `init` **generates** a
-key rather than asking you to think one up.
+There is no Next.js plugin and there never will be, because none is needed.
+`run` decrypts, puts the values in the environment, and starts your command —
+and every framework already reads environment variables:
 
-### Turning the randomness back into something you can hold
+```bash
+secure-term run -- next dev
+secure-term run -- vite build
+secure-term run -- python manage.py runserver
+secure-term run -- go run ./cmd/server
+```
 
-Here is where this goes further than Rails.
+Wire it into `package.json` once and the team stops thinking about it:
+
+```json
+{ "scripts": { "dev": "secure-term run -- next dev" } }
+```
+
+Decrypted values are **never written to disk** — they go straight into the child
+process. Anything already set in your shell wins, so `PORT=4000 npm run dev`
+behaves as expected.
+
+**On a server**, there is no key file; put the key in the environment like any
+other secret and the same command works unchanged:
+
+```yaml
+# GitHub Actions
+env:
+  SECURE_TERM_PASSPHRASE: ${{ secrets.SECURE_TERM_KEY }}
+run: secure-term run -- npm start
+```
+
+**Onboarding someone**: they clone, you send them the key by a route that is not
+the repository, they save it as `.secure-term.key`, and `npm run dev` works.
+
+Full detail in `secure-term help project`.
+
+## Never losing the key
+
+This is where it goes further than Rails.
 
 A project key is 32 random bytes. That strength is exactly what makes it
-awkward: you cannot memorise it, so it has to be *stored* — and Rails stores
-`master.key` as plaintext, which means backing it up puts a plaintext key
-wherever the backup goes. Dropbox, a laptop, an email to yourself.
-
-So seal it with the thing this whole app was built around — a phrase you could
-not forget:
+awkward — you cannot memorise it, so it must be *stored*, and Rails stores
+`master.key` as plaintext, which means every copy of the backup is a copy of the
+key. So seal it with the thing this whole app was built around:
 
 ```bash
 secure-term backup
@@ -178,111 +194,21 @@ Write this down, or keep it somewhere you will find it:
     tKIBxOTD EvA
 ```
 
-That is safe to store anywhere your passphrase is not: **printed in a drawer,
-in cloud storage, emailed to yourself, photographed.** It is meaningless
-without the sentence in your head. Nothing memorable is ever written down —
-the memorable part *is* the key, and it stays where it always was.
+Safe to keep anywhere your passphrase is not: printed in a drawer, in cloud
+storage, emailed to yourself, photographed. Lost the key file?
+`secure-term restore` rebuilds it from the phrase in your head.
 
-Lost the key file? Recover it from memory:
+- **It verifies itself.** `backup` decrypts its own output and compares it to the
+  key before reporting success. A backup nobody has opened is not a backup, and
+  this is the one file where finding out later means the key is gone.
+- **It prints in groups because you may retype it.** Whitespace is ignored on
+  restore, so it can be copied off paper exactly as shown.
+- **A pepper works here too** (`backup -p`).
 
-```bash
-secure-term restore                    # paste it, or:
-secure-term restore key-backup.txt
-```
-
-Three details that matter:
-
-- **It verifies itself.** `backup` decrypts its own output and compares it to
-  the key before saying it worked. A backup nobody has opened is not a backup,
-  and this is the one file where finding out later means the key is gone.
-- **It is printed in groups because you may retype it.** Whitespace and line
-  breaks are ignored on restore, so it can be copied off paper as shown.
-- **A pepper works here too** (`secure-term backup -p`), so the backup needs
-  the phrase *and* a detail that exists only in your head.
-
-> **Do not commit the backup to the repository it unlocks.** That repository
-> already holds `.env.enc`. Putting the sealed key beside it means one guessed
-> passphrase opens both — precisely what generating a random key avoided.
-> `backup` gitignores its output automatically, but the real rule is to store
-> it somewhere the repository is not.
-
-### One line, every framework
-
-There is no Next.js plugin, and there never will be, because none is needed.
-`run` decrypts, puts the variables in the environment, and starts your command
-— and every framework already reads environment variables:
-
-```bash
-secure-term run -- next dev
-secure-term run -- vite build
-secure-term run -- python manage.py runserver
-secure-term run -- go run ./cmd/server
-secure-term run -- rails server
-```
-
-Wire it into `package.json` once and the team stops thinking about it:
-
-```json
-{
-  "scripts": {
-    "dev": "secure-term run -- next dev",
-    "build": "secure-term run -- next build"
-  }
-}
-```
-
-The decrypted values are **never written to disk** — they go straight into the
-child process's environment. Anything already set in your shell wins, so
-`PORT=4000 npm run dev` still behaves the way you expect.
-
-### Production and CI
-
-Servers have no key file. Put the key in the environment, like any other
-secret, and the same command works unchanged:
-
-```yaml
-# GitHub Actions
-env:
-  SECURE_TERM_PASSPHRASE: ${{ secrets.SECURE_TERM_KEY }}
-run: secure-term run -- npm start
-```
-
-### Onboarding
-
-They clone, you send them the key by a route that is not the repository, they
-save it as `.secure-term.key`, and `npm run dev` works. No shared `.env`,
-nothing sensitive in the clone.
-
-And because a key file is just a passphrase that lives in a file, the format
-never changed: paste the key into the [web app](https://hfconsultant.github.io/)
-and it will open the same `.env.enc` on your phone.
-
-Full detail: `secure-term help project`.
-
-### Using it as a library
-
-The core is exported too, so the format is not locked inside either front-end:
-
-```js
-import { encryptText, decryptText } from 'secure-term';
-import { summarize } from 'secure-term/envfile';
-
-const payload = await encryptText('hello', 'passphrase');
-const back = await decryptText(payload, 'passphrase');
-```
-
-The same module runs unmodified in a browser — it uses only standard Web
-Crypto, with no Node-specific imports.
-
-### The pepper
-
-Every flow offers an optional **pepper**: a second secret mixed into the key
-alongside the passphrase. It is useful when the passphrase is something you
-might be compelled or tricked into revealing, since the pepper can be a detail
-that lives only in your head — a year, a street name, a nickname.
-
-It is not a backup. Lose either the passphrase or the pepper and the text is
-gone permanently. There is no recovery, by design.
+> **Never commit a sealed backup to the repository it unlocks.** That repository
+> already holds `.env.enc`; storing both together means one guessed passphrase
+> opens everything — precisely what a random key avoided. `backup` gitignores its
+> own output, but the real rule is to keep it somewhere else entirely.
 
 ## How it works
 
@@ -302,58 +228,40 @@ passphrase [+ pepper]
    STv1.<iterations>.<salt>.<iv>.<ciphertext>
 ```
 
-Everything runs through the browser's built-in [Web Crypto
-API](https://developer.mozilla.org/docs/Web/API/Web_Crypto_API). There is no
-hand-rolled cryptography and no third-party crypto library.
+All of it through the browser's built-in [Web Crypto
+API](https://developer.mozilla.org/docs/Web/API/Web_Crypto_API) — no hand-rolled
+cryptography, no third-party crypto library.
 
 ### Payload format
 
 ```
 STv1.<iterations>.<salt>.<iv>.<ciphertext>     plaintext is UTF-8 text
-STv2.<iterations>.<salt>.<iv>.<ciphertext>     plaintext is gzip of UTF-8 text
+STv2.<iterations>.<salt>.<iv>.<ciphertext>     plaintext is gzip of that text
 ```
 
-| Field        | Encoding  | Notes                                         |
-| ------------ | --------- | --------------------------------------------- |
-| version      | literal   | `STv1` raw, `STv2` gzip-compressed            |
-| `iterations` | decimal   | PBKDF2 iteration count used for this payload  |
-| `salt`       | base64url | 16 bytes, random per payload                  |
-| `iv`         | base64url | 12 bytes, random per payload                  |
-| `ciphertext` | base64url | AES-GCM output, includes the 16-byte auth tag |
+| Field | Encoding | Notes |
+| ----- | -------- | ----- |
+| version | literal | `STv1` raw, `STv2` gzip-compressed |
+| `iterations` | decimal | PBKDF2 rounds used for *this* payload |
+| `salt` | base64url | 16 bytes, random per payload |
+| `iv` | base64url | 12 bytes, random per payload |
+| `ciphertext` | base64url | AES-GCM output, includes the 16-byte tag |
 
-Three decisions worth calling out:
-
-- **The iteration count travels with the payload.** Raising the default in a
-  future release cannot orphan a payload you encrypted today.
+- **The iteration count travels with the payload**, so raising the default later
+  cannot orphan anything encrypted today.
 - **The version is the content encoding.** No flag field, so compression costs
   nothing on the wire — which matters, since payload length is the constraint
-  compression exists to relieve. A payload that would not benefit is still
-  written as `STv1`, so short secrets stay readable by older copies of the tool.
+  compression exists to relieve. Anything that would not benefit stays `STv1`,
+  so short secrets remain readable by older copies of the tool.
 - **base64url, not base64.** No `+`, `/` or `=`, so a payload survives a URL and
-  double-clicking selects the whole thing.
+  a double-click selects all of it.
 
-Payloads written by the pre-2.0 version of this app still decrypt, including
-those made with a pepper. New payloads are never written in that format.
+Pre-2.0 payloads still decrypt, including those made with a pepper.
 
-### Compression
+## Limits
 
-Text is compressed when that makes the payload smaller, and left alone when it
-would not. Measured on real prose and source: 2.5–3×, so payloads come out
-60–67% shorter. Short secrets and anything already random are skipped, because
-gzip's header makes those *larger* — a 38-byte API key measured 16% worse.
-
-Turn it off with `--no-compress`. One honest caveat: compressing before
-encrypting means the payload's length reveals roughly how compressible the
-content was. That is the CRIME/BREACH family of attacks, which needs an
-adaptive oracle — an attacker who can inject chosen data and watch lengths
-repeatedly. Payloads here are made once, offline, so there is no such oracle;
-the flag exists for anyone who would rather not carry the caveat at all.
-
-## Size, and the limit that actually bites
-
-There is no length limit in the format, and for anything a person writes the
-content is essentially free — key derivation costs a flat 150 ms whatever the
-size:
+**Text: effectively unlimited.** There is no length limit in the format, and key
+derivation costs a flat 150 ms whatever the size:
 
 | Content | Input | Encrypt |
 | ------- | ----- | ------- |
@@ -366,9 +274,8 @@ size:
 The ceiling is memory, not the format: nothing streams, so peak use runs about
 20× the input. 200 MB is fine on a laptop; 400 MB exhausts an 8 GB heap.
 
-**But the limit you will actually hit is the channel you paste into.** The
-clipboard is not the problem — 50 MB copies without complaint. The destination
-is:
+**The limit you will actually hit is the channel.** The clipboard is not the
+problem — 50 MB copies without complaint. The destination is:
 
 | Where | Limit | Plaintext, compressed |
 | ----- | ----- | --------------------- |
@@ -378,21 +285,19 @@ is:
 | Email, or a file | no practical limit | 200 MB |
 
 Both front-ends report the payload length and name anywhere it will not fit, so
-you find out before you try. The QR figure is byte mode at the lowest error
-correction — base64url cannot use QR's denser alphanumeric mode, which has no
-lowercase letters.
+you find out before you try. A novel will not paste into a chat window,
+compressed or not — send large text as a file.
 
-A novel will not paste into a chat window, compressed or not. Send large text as
-a file.
+**Compression** is applied when it makes the payload smaller and skipped when it
+would not: real prose and source compress 2.5–3×, while short secrets and
+anything already random come out *larger* under gzip. `--no-compress` turns it
+off. One honest caveat, covered in [SECURITY.md](SECURITY.md): compressing before
+encrypting lets the payload's length hint at how compressible the content was.
 
-## Binary files are not supported
-
-Images, PDFs and archives are **refused**, not encrypted. Everything here works
-on text, and bytes that are not valid UTF-8 cannot survive a round trip through
-a string — so encrypting one would hand back a broken file. Earlier versions did
-exactly that, silently, and reported success.
-
-If you need to send a small binary, encode it first:
+**Binary files are refused, not encrypted.** Everything here works on text, and
+bytes that are not valid UTF-8 cannot survive a round trip through a string.
+Earlier versions did it anyway, silently, and reported success. For a small
+binary, encode it first:
 
 ```bash
 base64 -i cert.p12 | secure-term encrypt -o secret.enc
@@ -401,145 +306,121 @@ secure-term decrypt secret.enc | base64 -d > cert.p12
 
 For encrypting files as files, use [age](https://age-encryption.org) — it
 streams, it does not hold the file in memory, and it is built for the job. This
-tool is for text you want to move through a channel that was never meant to
-carry it.
+tool is for text you want to move through a channel never meant to carry it.
 
-## What this protects against, and what it does not
+## Security
 
-**It protects against** someone reading the payload: a leaked note file, a
-synced clipboard, a screenshot in a chat backup, a stolen phone where the
-payload is sitting in a notes app.
+**It protects against** someone reading the payload: a leaked note file, a synced
+clipboard, a screenshot in a chat backup, a stolen phone with the payload sitting
+in a notes app.
 
-**It does not protect against:**
+**It does not protect against** a compromised device (a keylogger sees your
+passphrase as you type it), someone watching your screen while you read the
+decrypted result, a weak passphrase, or anyone who has both the payload and the
+passphrase.
 
-- A compromised device. A keylogger or malicious browser extension sees your
-  passphrase as you type it.
-- Someone watching your screen. Secrets are masked as you type and never
-  written to the page, but the decrypted result is displayed.
-- A weak passphrase. PBKDF2 raises the cost of guessing; it does not make
-  `password123` safe.
-- Anyone who has both your payload and your passphrase.
+Nothing is uploaded, because there is nowhere to upload to. The page's Content
+Security Policy sets `connect-src 'none'`, so the app is structurally incapable
+of a network request — enforced by the browser, not promised in a README. No
+third-party scripts, no CDN fonts, no analytics, no cookies, and nothing written
+to `localStorage`.
+
+You can check all of that rather than take it on trust: about 1,450 lines of
+unminified, dependency-free JavaScript for the web app, and the network tab stays
+empty after load.
 
 This is a personal project, not an audited cryptosystem. It uses standard
-primitives in a standard way, but it has not been independently reviewed.
-**Do not stake anything irreplaceable on it without a backup you control.**
+primitives in a standard way but has not been independently reviewed. **Do not
+stake anything irreplaceable on it without a backup you control.**
 
-### Privacy
-
-Nothing is uploaded, because there is nowhere to upload it to. The page's
-Content Security Policy sets `connect-src 'none'`, so the app is structurally
-incapable of making a network request — enforced by the browser, not by
-promise. There are no third-party scripts, no fonts from a CDN, no analytics,
-and no cookies. Nothing is written to `localStorage`; reload the page and the
-session is gone.
-
-You can verify all of this rather than take it on trust: it is about 2,000
-lines of unminified, dependency-free JavaScript, and the network tab stays
-empty after load. The CLI has no dependencies either — the published package is
-about 21 kB.
+Full threat model and design rationale: [SECURITY.md](SECURITY.md).
 
 ## Install
 
-The app is a PWA, so it can be installed and used offline:
+A PWA, so it installs and runs offline:
 
 - **Desktop:** open the [live demo](https://hfconsultant.github.io/) and click
-  the install icon in the address bar.
-- **iOS:** Share → *Add to Home Screen*.
-- **Android:** menu → *Install app*.
+  the install icon in the address bar
+- **iOS:** Share → *Add to Home Screen*
+- **Android:** menu → *Install app*
+
+Needs Web Crypto and ES modules — current Chrome, Edge, Firefox or Safari. Web
+Crypto requires a secure context, so HTTPS or `localhost`, not `file://`.
 
 ## Development
 
-No build step and no dependencies. Serve the directory over HTTP — ES modules
-will not load from `file://`:
+No build step, no dependencies. ES modules will not load from `file://`, so serve
+the directory:
 
 ```bash
-python3 -m http.server 8000
-```
-
-Then open `http://localhost:8000`.
-
-The CLI runs straight from the checkout:
-
-```bash
+python3 -m http.server 8000   # then open http://localhost:8000
 node cli/secure-term.js --help
-```
-
-### Tests
-
-A dependency-free suite under Node's built-in runner — 67 tests at the time of
-writing; `npm test` is the source of truth:
-
-```bash
 npm test
 ```
 
-The crypto tests run against Node's Web Crypto — the same standard API the
-browser provides — so `js/crypto.js` is exercised unmodified. They cover
-round-trips, unicode, salt and IV uniqueness, tamper rejection, malformed
-payloads, passphrase/pepper separation and pre-2.0 compatibility.
+143 tests under Node's built-in runner; `npm test` is the source of truth. The
+crypto tests run against Node's Web Crypto — the same standard API the browser
+provides — so `js/crypto.js` is exercised unmodified.
 
-The rest guard things that are invisible until they break in front of a user:
-that every module reached through an import is precached (the bug that broke
-offline support for a year), that the CSP has not regained `unsafe-inline`,
-that the summary never prints a secret value, and that no `--passphrase` flag
-has been added as a convenience.
-
-### Releasing
-
-The published package is a deliberate subset of the repository: npm gets the
-CLI and the shared core, GitHub Pages serves the site from the same commit.
-`tests/package.test.js` follows the CLI's imports and fails if any of them fall
-outside the `files` whitelist, so the package cannot be published missing a
-module it needs.
-
-To cut a release:
-
-1. Bump `version` in `package.json`. A test asserts the CLI reports the same
-   version, so `secure-term --version` cannot drift.
-2. Push, and let CI pass.
-3. Create a GitHub Release. That triggers `.github/workflows/publish.yml`,
-   which re-runs the tests, refuses to publish a version already on npm, and
-   publishes with provenance.
-
-Publishing needs an `NPM_TOKEN` repository secret (an npm automation token).
-Without it the workflow is inert, which is the safe default — nothing publishes
-on an ordinary push.
+The rest guard things that stay invisible until they break in front of someone:
+that every module reached through an import is precached (the bug that stopped
+the service worker installing at all), that the CSP has not regained
+`unsafe-inline`, that summaries never print a secret value, that no
+`--passphrase` flag has been added as a convenience, and that no file in the repo
+contains a credential-shaped string.
 
 ### Layout
 
 ```
-index.html            markup and Content Security Policy
-css/style.css         styles
-js/crypto.js          encryption core — no DOM, runs in browser and Node
-js/envfile.js         .env summarising — names only, never values
-js/envparse.js        .env parsing with values — CLI only, feeds `run`
-js/terminal.js        web UI and command flow — no cryptography
-js/register-sw.js     service worker registration
-cli/secure-term.js    command line front-end
-service-worker.js     offline caching
-docs/scanners.md      keeping payloads out of secret-scanner alerts
-tests/                crypto, .env, CLI, asset and packaging tests
+index.html           markup and Content Security Policy
+css/style.css        styles
+js/crypto.js         encryption core — no DOM, runs in browser and Node
+js/envfile.js        describing content safely — names, sizes, never values
+js/envparse.js       .env parsing with values — CLI only, feeds `run`
+js/terminal.js       web UI and command flow — no cryptography
+js/register-sw.js    service worker registration
+cli/secure-term.js   command line front-end
+service-worker.js    offline caching
+docs/scanners.md     keeping payloads out of secret-scanner alerts
+tests/               crypto, .env, CLI, project, backup, asset, packaging
 ```
 
 One core, two front-ends. `js/crypto.js` touches no DOM and performs no I/O;
-`terminal.js` and `cli/secure-term.js` are both thin shells over it and neither
-does any cryptography of its own. That is what lets a payload made in a browser
-open in a terminal, and it means the part that matters can be read and tested
-on its own.
+`terminal.js` and `cli/secure-term.js` are thin shells over it and neither does
+any cryptography of its own. That is what lets a payload made in a browser open
+in a terminal, and it means the part that matters can be read and tested alone.
 
-## Browser support
+### Using it as a library
 
-Needs Web Crypto and ES modules — Chrome, Edge, Firefox and Safari, current
-versions. Web Crypto requires a secure context, so the app works over HTTPS or
-on `localhost`, but not from a `file://` URL.
+```js
+import { encryptText, decryptText } from 'secure-term';
+import { summarize } from 'secure-term/envfile';
+
+const payload = await encryptText('hello', 'passphrase');
+const back = await decryptText(payload, 'passphrase');
+```
+
+### Releasing
+
+npm gets the CLI and the shared core; GitHub Pages serves the site from the same
+commit. `tests/package.test.js` follows the CLI's imports and fails if any fall
+outside the `files` whitelist, so the package cannot ship missing a module.
+
+1. Bump `version` in `package.json` — a test asserts the CLI reports the same one
+2. Push, and let CI pass
+3. Create a GitHub Release, which triggers `.github/workflows/publish.yml`: it
+   re-runs the tests, refuses a version already on npm, and publishes with
+   provenance
+
+Publishing needs an `NPM_TOKEN` repository secret. Without it the workflow is
+inert, which is the safe default — nothing publishes on an ordinary push.
 
 ## Documentation
 
+- [SECURITY.md](SECURITY.md) — threat model, design rationale, reporting
 - [docs/scanners.md](docs/scanners.md) — secret scanners, false positives, and
   why payloads do not belong in git
 - [PROMPTS.md](PROMPTS.md) — the prompt history behind this project
-- [SECURITY.md](SECURITY.md) — threat model and how to report an issue
-- [LICENSE](LICENSE) — MIT
 
 ## License
 
