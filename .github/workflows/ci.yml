@@ -14,10 +14,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 20 is the oldest maintained LTS; 22 is what development happens on.
-        # Both are covered because the test runner's argument handling differs
-        # between them -- glob expansion in `node --test` only arrived in 22.
-        node: ['20', '22']
+        # 20 is the floor declared in package.json engines, so it is tested
+        # rather than assumed -- the previously declared floor of 18 turned out
+        # not to work at all, because Node only exposes Web Crypto as a global
+        # from 19. 22 is where development happens; 24 catches the next break.
+        node: ['20', '22', '24']
 
     steps:
       - uses: actions/checkout@v4

@@ -1,6 +1,6 @@
 {
   "name": "secure-term",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Encrypt a secret so you can send it through any channel. AES-256-GCM, no server, no dependencies. Works in the browser and the terminal.",
   "type": "module",
   "license": "MIT",
@@ -29,11 +29,13 @@
     ".": "./js/crypto.js",
     "./envfile": "./js/envfile.js"
   },
+  "//engines": "Node 20, not 18: Web Crypto is only a global from Node 19 unflagged and 20 stably, and everything here is built on it. Verified by running the suite on 18, where it fails.",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "prepublishOnly": "npm test"
   },
   "//": "The website is deliberately excluded from the published package: npm gets the shared core and the CLI, GitHub Pages serves the rest.",
   "files": [

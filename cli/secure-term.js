@@ -22,7 +22,35 @@ import { ReadStream } from 'node:tty';
 import { encryptText, decryptText, ITERATIONS, PayloadError, DecryptionError } from '../js/crypto.js';
 import { summarize, describe } from '../js/envfile.js';
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
+
+/** Oldest Node this runs on. Kept in step with "engines" in package.json. */
+const MINIMUM_NODE = 20;
+
+/**
+ * Check the runtime before attempting any cryptography.
+ *
+ * Node only exposes Web Crypto as a global from v19 (unflagged) and stably
+ * from v20. Without this, an older Node fails with "crypto is not defined",
+ * which tells the user nothing about what to do next.
+ *
+ * Deliberately not checked before --help: help should work everywhere,
+ * including on the runtime that cannot run the tool.
+ */
+function checkRuntime() {
+	if (typeof globalThis.crypto?.subtle !== 'undefined') return null;
+
+	const running = process.versions.node;
+	return new UsageError(
+		`secure-term needs Node ${MINIMUM_NODE} or newer, and this is Node ${running}.\n` +
+		`  Node ${running.split('.')[0]} does not provide the Web Crypto API that all\n` +
+		`  the encryption here is built on.\n\n` +
+		`  Upgrade Node, or run it without installing anything:\n` +
+		`    npx --node-range='>=${MINIMUM_NODE}' secure-term --help\n\n` +
+		`  Or use the web version, which needs no Node at all:\n` +
+		`    https://hfconsultant.github.io/`
+	);
+}
 
 const EXIT = {
 	OK: 0,
@@ -762,6 +790,9 @@ async function main(argv) {
 		say(orientation());
 		return EXIT.USAGE;
 	}
+
+	const unsupported = checkRuntime();
+	if (unsupported) return report(unsupported, options);
 
 	try {
 		return options.command === 'encrypt'

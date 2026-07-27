@@ -95,8 +95,11 @@ Same encryption, same payload format, same core module — a payload made on you
 phone opens in your terminal and vice versa.
 
 ```bash
-npx secure-term --help
+npx secure-term --help          # no install
+npm install -g secure-term      # or keep it around
 ```
+
+Needs Node 20 or newer. Zero dependencies — the whole package is 18 kB.
 
 ```bash
 secure-term encrypt .env -o .env.enc     # scramble a file
@@ -113,6 +116,21 @@ to stderr — so it composes properly in a pipeline.
 `format` in depth. There is deliberately **no `--passphrase` flag**: anything on
 the command line shows up in `ps` and in shell history. For automation, set
 `SECURE_TERM_PASSPHRASE` in the environment.
+
+### Using it as a library
+
+The core is exported too, so the format is not locked inside either front-end:
+
+```js
+import { encryptText, decryptText } from 'secure-term';
+import { summarize } from 'secure-term/envfile';
+
+const payload = await encryptText('hello', 'passphrase');
+const back = await decryptText(payload, 'passphrase');
+```
+
+The same module runs unmodified in a browser — it uses only standard Web
+Crypto, with no Node-specific imports.
 
 ### The pepper
 
@@ -249,6 +267,27 @@ offline support for a year), that the CSP has not regained `unsafe-inline`,
 that the summary never prints a secret value, and that no `--passphrase` flag
 has been added as a convenience.
 
+### Releasing
+
+The published package is a deliberate subset of the repository: npm gets the
+CLI and the shared core, GitHub Pages serves the site from the same commit.
+`tests/package.test.js` follows the CLI's imports and fails if any of them fall
+outside the `files` whitelist, so the package cannot be published missing a
+module it needs.
+
+To cut a release:
+
+1. Bump `version` in `package.json`. A test asserts the CLI reports the same
+   version, so `secure-term --version` cannot drift.
+2. Push, and let CI pass.
+3. Create a GitHub Release. That triggers `.github/workflows/publish.yml`,
+   which re-runs the tests, refuses to publish a version already on npm, and
+   publishes with provenance.
+
+Publishing needs an `NPM_TOKEN` repository secret (an npm automation token).
+Without it the workflow is inert, which is the safe default — nothing publishes
+on an ordinary push.
+
 ### Layout
 
 ```
@@ -261,7 +300,7 @@ js/register-sw.js     service worker registration
 cli/secure-term.js    command line front-end
 service-worker.js     offline caching
 docs/scanners.md      keeping payloads out of secret-scanner alerts
-tests/                crypto, .env, CLI and asset tests
+tests/                crypto, .env, CLI, asset and packaging tests
 ```
 
 One core, two front-ends. `js/crypto.js` touches no DOM and performs no I/O;
