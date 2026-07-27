@@ -8,15 +8,23 @@ on:
 
 jobs:
   test:
-    name: Tests
+    name: Tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the oldest maintained LTS; 22 is what development happens on.
+        # Both are covered because the test runner's argument handling differs
+        # between them -- glob expansion in `node --test` only arrived in 22.
+        node: ['20', '22']
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
 
       # No dependencies to install: the crypto tests run against Node's own
       # Web Crypto implementation, and there is nothing to build.

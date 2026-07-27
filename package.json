@@ -11,6 +11,6 @@
     "url": "https://github.com/HFConsultant/HFConsultant.github.io.git"
   },
   "scripts": {
-    "test": "node --test 'tests/**/*.test.js'"
+    "test": "node --test"
   }
 }
