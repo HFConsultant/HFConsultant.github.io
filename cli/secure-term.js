@@ -25,11 +25,13 @@ import { spawn } from 'node:child_process';
 import { tmpdir, constants as osConstants } from 'node:os';
 import { join } from 'node:path';
 
-import { encryptText, decryptText, ITERATIONS, PayloadError, DecryptionError } from '../js/crypto.js';
-import { summarize, describe, decodeUtf8Strict } from '../js/envfile.js';
+import {
+	encryptText, decryptText, ITERATIONS, VERSION_GZIP, PayloadError, DecryptionError
+} from '../js/crypto.js';
+import { summarize, describe, decodeUtf8Strict, tooLongFor } from '../js/envfile.js';
 import { parseEnv } from '../js/envparse.js';
 
-const VERSION = '2.5.0';
+const VERSION = '2.6.0';
 
 /** The project key file, by convention — the analogue of Rails' master.key. */
 const KEY_FILE = '.secure-term.key';
@@ -148,6 +150,7 @@ ${c.bold('OPTIONS')}
   -f, --force            Overwrite the output file if it already exists
       --iterations ${c.dim('<n>')}   Key-stretching rounds for new payloads ${c.dim(`(default ${ITERATIONS.toLocaleString()})`)}
       --no-confirm       Do not ask for the passphrase twice when encrypting
+      --no-compress      Do not compress, even when it would shrink the payload
   -q, --quiet            Only report errors
   -h, --help             Show this help
   -V, --version          Show the version
@@ -160,6 +163,7 @@ ${c.bold('LEARN MORE')}
   secure-term help scanners   ${c.dim('stopping security scanners flagging payloads')}
   secure-term help env        ${c.dim('sharing a .env file with a teammate')}
   secure-term help format     ${c.dim('the payload format, for other tools')}
+  secure-term help limits     ${c.dim('how big it can go, and where it stops')}
 
 ${c.yellow(c.bold('IMPORTANT'))}
   ${c.yellow('There is no password reset and no recovery. If you forget the')}
@@ -170,6 +174,60 @@ ${c.yellow(c.bold('IMPORTANT'))}
 }
 
 const TOPICS = {
+	limits: `
+${c.bold('How big it can go, and where it actually stops')}
+
+  ${c.bold('Text: effectively unlimited')}
+  There is no length limit in the format. Measured end to end:
+
+    a .env file          2 KB      under 1 ms
+    a novel            300 KB          3 ms
+    War and Peace      3.2 MB         29 ms
+    ten years of notes  10 MB        122 ms
+                       200 MB        3.1 s
+
+  Key derivation costs a flat 150 ms whatever the size, so for anything a
+  person writes the content is essentially free and the passphrase is the
+  entire cost.
+
+  ${c.bold('The ceiling is memory')}
+  Nothing streams — the whole thing is held in memory at once, and peak use
+  runs about 20x the input. 200 MB is comfortable on a laptop; 400 MB
+  exhausts an 8 GB heap. Beyond that a hard limit waits anyway: the payload
+  must fit in one JavaScript string, which caps at 536,870,888 characters.
+
+  ${c.bold('The limit you will actually hit is the channel')}
+  A payload is 1.33x the input before compression. The system clipboard is
+  not the problem — 50 MB copies fine. Where you paste it is:
+
+    a QR code            2,953 characters   (byte mode, lowest correction)
+    a Slack message     40,000 characters   (and it collapses long before)
+    a GitHub comment    65,536 characters
+    email, or a file    no practical limit
+
+  ${c.bold('Compression')}
+  Text is compressed automatically when that makes the payload smaller, which
+  moves the pasteable ceiling from roughly 30 KB of text to 80 KB. Measured
+  on real prose and source: 2.5x to 3x, so payloads come out 60-67% shorter.
+
+  It is skipped when it would not help — short secrets and anything already
+  random get bigger under gzip, so those are left alone. Turn it off entirely
+  with --no-compress.
+
+  A novel still will not paste into a chat window, compressed or not. Send
+  large text as a file.
+
+  ${c.bold('Binary is not supported')}
+  Images, PDFs and archives are refused rather than quietly ruined. Encode
+  first if you need to:
+
+    base64 -i file.png | secure-term encrypt -o secret.enc
+    secure-term decrypt secret.enc | base64 -d > file.png
+
+  For encrypting files as files, age (https://age-encryption.org) is the
+  right tool — it streams, and it does not hold the file in memory.
+`,
+
 	backup: `
 ${c.bold('Turning the randomness back into something you can hold')}
 
@@ -435,8 +493,9 @@ ${c.bold('The payload format')}
   ${c.bold('Why it is shaped this way')}
   The iteration count travels inside the payload, so raising the default in
   a later release can never orphan something you encrypted today. base64url
-  avoids '+', '/' and '=', so a payload survives being pasted into a URL or
-  a QR code, and a double-click selects all of it.
+  avoids '+', '/' and '=', so a payload survives being pasted into a URL and
+  a double-click selects all of it. A QR code only fits about 2,950
+  characters — see: secure-term help limits
 
   ${c.bold('Interoperating')}
   PBKDF2-HMAC-SHA256 over the passphrase (joined to the pepper with a single
@@ -495,6 +554,7 @@ function parseArgs(argv) {
 		force: false,
 		quiet: false,
 		confirm: true,
+		compress: true,
 		iterations: ITERATIONS,
 		help: false,
 		version: false,
@@ -526,6 +586,7 @@ function parseArgs(argv) {
 			case '-f': case '--force': options.force = true; break;
 			case '-q': case '--quiet': options.quiet = true; break;
 			case '--no-confirm': options.confirm = false; break;
+			case '--no-compress': options.compress = false; break;
 
 			case '-o': case '--out': {
 				options.out = rest.shift();
@@ -971,8 +1032,12 @@ async function doEncrypt(options) {
 	const { passphrase, pepper } = await collectSecrets(options);
 
 	if (!options.quiet) process.stderr.write(c.dim('Encrypting... '));
-	const payload = await encryptText(input, passphrase, pepper, options.iterations);
+	const payload = await encryptText(input, passphrase, pepper, options.iterations, {
+		compress: options.compress
+	});
 	if (!options.quiet) say(c.green('done'));
+
+	if (!options.quiet) reportSize(payload, summary.bytes);
 
 	writeOutput(payload, options);
 
@@ -985,6 +1050,31 @@ async function doEncrypt(options) {
 	}
 
 	return EXIT.OK;
+}
+
+/**
+ * Say how long the payload is, and name anywhere it will not fit.
+ *
+ * Producing a payload nobody can paste is a real dead end, and silence about it
+ * just moves the discovery to the moment it fails in front of someone else.
+ */
+function reportSize(payload, inputBytes) {
+	const chars = payload.length;
+
+	if (payload.startsWith(`${VERSION_GZIP}.`)) {
+		// What the payload would have measured with compression switched off.
+		const uncompressed = Math.ceil((inputBytes + 16) / 3) * 4 + 50;
+		const saved = Math.round((1 - chars / uncompressed) * 100);
+		say(c.dim(`Payload: ${chars.toLocaleString()} characters — compressed, ${saved}% smaller`));
+	} else {
+		say(c.dim(`Payload: ${chars.toLocaleString()} characters`));
+	}
+
+	const wontFit = tooLongFor(chars);
+	if (wontFit.length) {
+		say(c.yellow(`Too long to paste into ${wontFit.join(', or ')}.`));
+		say(c.dim('Send it as a file, or by email, where length is not capped.'));
+	}
 }
 
 async function doDecrypt(options) {

@@ -22,7 +22,7 @@ const CLI = join(root, 'cli', 'secure-term.js');
 
 const ENV_FILE = `# Project secrets
 DATABASE_URL=postgres://admin:hunter2@db.internal:5432/app
-STRIPE_SECRET_KEY=sk_live_fakeKEY
+STRIPE_SECRET_KEY=not-a-real-stripe-key
 PORT=3000 # dev only
 `;
 
@@ -266,7 +266,7 @@ test('run reports variable names but never values', async () => {
 		const { stderr } = await cli(['run', '--', process.execPath, '-e', '0'], { cwd: dir });
 
 		assert.match(stderr, /DATABASE_URL/, 'names are useful');
-		for (const secret of ['hunter2', 'sk_live_fakeKEY']) {
+		for (const secret of ['hunter2', 'not-a-real-stripe-key']) {
 			assert.ok(!stderr.includes(secret), `run printed a secret value: ${secret}`);
 		}
 	});

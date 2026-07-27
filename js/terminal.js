@@ -15,12 +15,13 @@ import {
 	encryptText,
 	decryptText,
 	estimateStrength,
+	VERSION_GZIP,
 	PayloadError,
 	DecryptionError
 } from './crypto.js';
 
 import {
-	summarize, describe, encryptedName, decryptedName, decodeUtf8Strict
+	summarize, describe, encryptedName, decryptedName, decodeUtf8Strict, tooLongFor
 } from './envfile.js';
 
 /** How long a decrypted secret sits on the clipboard before we try to clear it. */
@@ -244,6 +245,44 @@ const terminal = {
 
 		URL.revokeObjectURL(url);
 		this.write(`Saved as ${filename}`, { kind: 'muted' });
+	},
+
+	/**
+	 * Say how long the payload is, and steer to the download when it is too
+	 * long to paste.
+	 *
+	 * The clipboard itself is not the constraint — 50 MB copies fine. The
+	 * destination is, and a payload that silently exceeds what a chat window
+	 * accepts fails later, in front of someone else. Offering Copy and Download
+	 * with equal prominence when only one of them can work is an invitation to
+	 * pick the wrong one.
+	 */
+	reportPayloadSize(payload, inputBytes) {
+		const chars = payload.length;
+
+		if (payload.startsWith(`${VERSION_GZIP}.`)) {
+			const uncompressed = Math.ceil((inputBytes + 16) / 3) * 4 + 50;
+			const saved = Math.round((1 - chars / uncompressed) * 100);
+			this.write(
+				`${chars.toLocaleString()} characters — compressed, ${saved}% smaller.`,
+				{ kind: 'muted' }
+			);
+		} else {
+			this.write(`${chars.toLocaleString()} characters.`, { kind: 'muted' });
+		}
+
+		const wontFit = tooLongFor(chars);
+		if (wontFit.length) {
+			this.write(`Too long to paste into ${wontFit.join(', or ')}.`, { kind: 'warn' });
+			this.write('Use the download button — email and files have no limit.', {
+				kind: 'warn'
+			});
+		} else {
+			this.write('Safe to send anywhere. Tell the other person the passphrase', {
+				kind: 'muted'
+			});
+			this.write('some other way — not in the same message.', { kind: 'muted' });
+		}
 	},
 
 	/** Report what a block of text contains, by variable name and never value. */
@@ -499,14 +538,12 @@ const terminal = {
 
 		try {
 			if (mode === 'encrypt') {
+				const inputBytes = summarize(data.text).bytes;
 				const payload = await encryptText(data.text, data.passphrase, data.pepper);
 				working.remove();
 				this.write('Encrypted. Store this somewhere you can get it back:', { kind: 'ok' });
 				this.writeResult(payload, false, encryptedName(this.sourceName || 'secret.txt'));
-				this.write('Safe to send anywhere. Tell the other person the passphrase', {
-					kind: 'muted'
-				});
-				this.write('some other way — not in the same message.', { kind: 'muted' });
+				this.reportPayloadSize(payload, inputBytes);
 			} else {
 				const plaintext = await decryptText(data.payload, data.passphrase, data.pepper);
 				working.remove();

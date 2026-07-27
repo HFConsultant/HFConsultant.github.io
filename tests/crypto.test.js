@@ -19,6 +19,7 @@ import {
 	SALT_BYTES,
 	IV_BYTES,
 	VERSION,
+	VERSION_GZIP,
 	PayloadError,
 	DecryptionError,
 	encryptText,
@@ -172,12 +173,27 @@ test('round-trips text far larger than the base64 chunk size', async () => {
 	// Base64 encoding is done in 8 KB chunks for speed, so anything that
 	// crosses a chunk boundary — or lands exactly on one — has to be verified.
 	// An off-by-one here would corrupt data silently.
+	//
+	// Compression is switched off deliberately. With it on, 'x'.repeat(100000)
+	// squeezes to ~149 bytes of ciphertext and the chunking is never exercised
+	// at all — the test would pass while testing nothing.
 	for (const size of [8191, 8192, 8193, 16384, 100_000]) {
 		const text = 'x'.repeat(size);
-		const payload = await encryptText(text, 'pw', '', FAST);
+		const payload = await encryptText(text, 'pw', '', FAST, { compress: false });
 		const back = await decryptText(payload, 'pw');
 		assert.equal(back.length, size, `length changed at ${size} bytes`);
 		assert.equal(back, text, `content changed at ${size} bytes`);
+	}
+});
+
+test('round-trips incompressible data across the chunk boundary', async () => {
+	// The same boundaries with content compression cannot shrink, so the
+	// chunked encoder is exercised on the default path too.
+	for (const size of [8191, 8192, 8193, 20_000]) {
+		const random = crypto.getRandomValues(new Uint8Array(size));
+		const text = Array.from(random, (b) => String.fromCharCode(32 + (b % 95))).join('');
+		const payload = await encryptText(text, 'pw', '', FAST);
+		assert.equal(await decryptText(payload, 'pw'), text, `changed at ${size} bytes`);
 	}
 });
 
@@ -186,8 +202,56 @@ test('round-trips multi-byte characters across a chunk boundary', async () => {
 	// likely to break a chunked encoder.
 	const filler = 'a'.repeat(8190);
 	const text = `${filler}🔐${filler}中文`;
-	const payload = await encryptText(text, 'pw', '', FAST);
-	assert.equal(await decryptText(payload, 'pw'), text);
+
+	for (const compress of [true, false]) {
+		const payload = await encryptText(text, 'pw', '', FAST, { compress });
+		assert.equal(await decryptText(payload, 'pw'), text, `failed with compress=${compress}`);
+	}
+});
+
+test('compresses large text, and records that it did', async () => {
+	const text = 'The quick brown fox jumps over the lazy dog.\n'.repeat(500);
+
+	const compressed = await encryptText(text, 'pw', '', FAST);
+	const plain = await encryptText(text, 'pw', '', FAST, { compress: false });
+
+	assert.equal(compressed.split('.')[0], VERSION_GZIP);
+	assert.equal(plain.split('.')[0], VERSION);
+	assert.ok(
+		compressed.length < plain.length / 2,
+		`compression should more than halve this: ${compressed.length} vs ${plain.length}`
+	);
+
+	// Both must come back identical — the version tells decryption what to do.
+	assert.equal(await decryptText(compressed, 'pw'), text);
+	assert.equal(await decryptText(plain, 'pw'), text);
+});
+
+test('never makes a payload larger by compressing it', async () => {
+	// gzip's header makes short input bigger, and random input incompressible.
+	// Measured before this guard existed: a 38-byte API key came out 16% worse.
+	const cases = [
+		'not-a-real-stripe-key-9f3a7c21d8b4e6',
+		'wagon rhythm exotic stand lens fortune brief grain siren wheel trophy blind',
+		// Already-encrypted content: nothing left to compress.
+		await encryptText('a sealed key', 'phrase', '', FAST)
+	];
+
+	for (const text of cases) {
+		const auto = await encryptText(text, 'pw', '', FAST);
+		const plain = await encryptText(text, 'pw', '', FAST, { compress: false });
+		assert.ok(
+			auto.length <= plain.length,
+			`compression made this worse: ${auto.length} vs ${plain.length} for ${text.slice(0, 30)}`
+		);
+	}
+});
+
+test('short payloads stay STv1, so older copies of the tool can still read them', async () => {
+	// Compatibility where it matters most: a password or a seed phrase is
+	// written in the original format, and only large text needs a current tool.
+	const short = await encryptText('hunter2', 'pw', '', FAST);
+	assert.equal(short.split('.')[0], VERSION);
 });
 
 test('tolerates whitespace inside a payload', async () => {

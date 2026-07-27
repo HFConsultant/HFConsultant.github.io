@@ -309,26 +309,100 @@ hand-rolled cryptography and no third-party crypto library.
 ### Payload format
 
 ```
-STv1.<iterations>.<salt>.<iv>.<ciphertext>
+STv1.<iterations>.<salt>.<iv>.<ciphertext>     plaintext is UTF-8 text
+STv2.<iterations>.<salt>.<iv>.<ciphertext>     plaintext is gzip of UTF-8 text
 ```
 
 | Field        | Encoding  | Notes                                         |
 | ------------ | --------- | --------------------------------------------- |
-| `STv1`       | literal   | Format version                                |
+| version      | literal   | `STv1` raw, `STv2` gzip-compressed            |
 | `iterations` | decimal   | PBKDF2 iteration count used for this payload  |
 | `salt`       | base64url | 16 bytes, random per payload                  |
 | `iv`         | base64url | 12 bytes, random per payload                  |
 | `ciphertext` | base64url | AES-GCM output, includes the 16-byte auth tag |
 
-Two decisions worth calling out:
+Three decisions worth calling out:
 
 - **The iteration count travels with the payload.** Raising the default in a
   future release cannot orphan a payload you encrypted today.
-- **base64url, not base64.** No `+`, `/` or `=`, so a payload survives being
-  pasted into a URL or a QR code, and double-clicking selects the whole thing.
+- **The version is the content encoding.** No flag field, so compression costs
+  nothing on the wire — which matters, since payload length is the constraint
+  compression exists to relieve. A payload that would not benefit is still
+  written as `STv1`, so short secrets stay readable by older copies of the tool.
+- **base64url, not base64.** No `+`, `/` or `=`, so a payload survives a URL and
+  double-clicking selects the whole thing.
 
-Payloads written by the pre-2.0 version of this app still decrypt. New payloads
-are never written in that format.
+Payloads written by the pre-2.0 version of this app still decrypt, including
+those made with a pepper. New payloads are never written in that format.
+
+### Compression
+
+Text is compressed when that makes the payload smaller, and left alone when it
+would not. Measured on real prose and source: 2.5–3×, so payloads come out
+60–67% shorter. Short secrets and anything already random are skipped, because
+gzip's header makes those *larger* — a 38-byte API key measured 16% worse.
+
+Turn it off with `--no-compress`. One honest caveat: compressing before
+encrypting means the payload's length reveals roughly how compressible the
+content was. That is the CRIME/BREACH family of attacks, which needs an
+adaptive oracle — an attacker who can inject chosen data and watch lengths
+repeatedly. Payloads here are made once, offline, so there is no such oracle;
+the flag exists for anyone who would rather not carry the caveat at all.
+
+## Size, and the limit that actually bites
+
+There is no length limit in the format, and for anything a person writes the
+content is essentially free — key derivation costs a flat 150 ms whatever the
+size:
+
+| Content | Input | Encrypt |
+| ------- | ----- | ------- |
+| A `.env` file | 2 KB | under 1 ms |
+| A novel | 300 KB | 3 ms |
+| War and Peace | 3.2 MB | 29 ms |
+| Ten years of notes | 10 MB | 122 ms |
+| — | 200 MB | 3.1 s |
+
+The ceiling is memory, not the format: nothing streams, so peak use runs about
+20× the input. 200 MB is fine on a laptop; 400 MB exhausts an 8 GB heap.
+
+**But the limit you will actually hit is the channel you paste into.** The
+clipboard is not the problem — 50 MB copies without complaint. The destination
+is:
+
+| Where | Limit | Plaintext, compressed |
+| ----- | ----- | --------------------- |
+| A QR code | 2,953 chars | ~6 KB |
+| A Slack message | 40,000 chars | ~82 KB |
+| A GitHub comment | 65,536 chars | ~134 KB |
+| Email, or a file | no practical limit | 200 MB |
+
+Both front-ends report the payload length and name anywhere it will not fit, so
+you find out before you try. The QR figure is byte mode at the lowest error
+correction — base64url cannot use QR's denser alphanumeric mode, which has no
+lowercase letters.
+
+A novel will not paste into a chat window, compressed or not. Send large text as
+a file.
+
+## Binary files are not supported
+
+Images, PDFs and archives are **refused**, not encrypted. Everything here works
+on text, and bytes that are not valid UTF-8 cannot survive a round trip through
+a string — so encrypting one would hand back a broken file. Earlier versions did
+exactly that, silently, and reported success.
+
+If you need to send a small binary, encode it first:
+
+```bash
+base64 -i cert.p12 | secure-term encrypt -o secret.enc
+secure-term decrypt secret.enc | base64 -d > cert.p12
+```
+
+For encrypting files as files, use [age](https://age-encryption.org) — it
+streams, it does not hold the file in memory, and it is built for the job. This
+tool is for text you want to move through a channel that was never meant to
+carry it.
 
 ## What this protects against, and what it does not
 

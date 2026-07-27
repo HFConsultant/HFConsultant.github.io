@@ -154,6 +154,40 @@ Other properties:
   be retyped by hand. This applies to all payloads and also rescues ones
   line-wrapped by an email client.
 
+## Compression
+
+Text is gzip-compressed before encryption when that makes the payload smaller,
+recorded by the payload version (`STv2` compressed, `STv1` not). This exists to
+relieve the real constraint on the tool — the length limits of the channels
+payloads travel through — not to save disk.
+
+**The caveat, stated plainly:** compressing before encrypting means the
+ciphertext length reveals roughly how compressible the plaintext was. That is a
+weak signal about content type, and it is the mechanism behind the CRIME and
+BREACH attacks.
+
+Those attacks need something this tool does not provide: an adaptive oracle,
+where an attacker repeatedly injects chosen data into the same secret and
+observes the resulting lengths. Payloads here are produced once, offline, from
+content the user supplies in full. There is no request loop, no attacker-chosen
+prefix, and no repetition to average over.
+
+It is nevertheless a real if narrow information leak, so:
+
+- `--no-compress` disables it entirely, for anyone who would rather not carry
+  the caveat.
+- Compression is skipped below 128 bytes and whenever it does not shrink the
+  result, so short secrets — passwords, seed phrases, sealed keys — are
+  typically not compressed at all, and their lengths reveal nothing new.
+
+## Binary content
+
+Binary input is **refused**, not encrypted. The reasoning is in the
+backwards-compatibility note below: this is a text tool, and bytes that are not
+valid UTF-8 cannot survive the round trip. Refusing prevents silent data loss.
+For encrypting files as files, [age](https://age-encryption.org) is the
+appropriate tool.
+
 ## Backwards compatibility
 
 Payloads from the pre-2.0 release still decrypt, including those made with a

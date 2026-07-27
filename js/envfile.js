@@ -1,13 +1,15 @@
 /**
- * Secure Terminal — .env awareness.
+ * Secure Terminal — describing content safely.
  *
- * Used by both front-ends to describe what someone is about to encrypt, or
- * what they just decrypted, without ever displaying the thing itself.
+ * Shared by both front-ends. Everything here exists to say something *about*
+ * content — what variables it defines, how large it is, whether it is text at
+ * all, where a payload will fit — without ever displaying the content itself.
  *
  * The one rule in this module: **it never returns a value.** Only names,
- * counts and sizes. Everything here is safe to print to a terminal, a shared
- * screen or a CI log. If a function in this file ever needs to return a
- * secret, it belongs somewhere else.
+ * counts, sizes and verdicts. Everything here is safe to print to a terminal,
+ * a shared screen or a CI log. If a function in this file ever needs to return
+ * a secret, it belongs somewhere else — see js/envparse.js, which does, and is
+ * kept separate for exactly that reason.
  */
 
 /**
@@ -145,6 +147,29 @@ export function decodeUtf8Strict(bytes) {
 	}
 
 	return { ok: true, text };
+}
+
+/**
+ * Where a payload has to fit to be pasteable, in characters.
+ *
+ * Characters, not bytes, because that is what these channels count. Kept here
+ * rather than in either front-end so the numbers cannot drift apart.
+ *
+ * The QR figure is byte mode at the lowest error correction: base64url cannot
+ * use QR's denser alphanumeric mode, which has no lowercase letters. Slack's
+ * 40,000 is its hard maximum — it collapses long messages into a snippet well
+ * before that. The system clipboard is deliberately absent: 50 MB copies
+ * without complaint, so it is never the binding limit.
+ */
+export const CHANNELS = [
+	{ name: 'a QR code', limit: 2953 },
+	{ name: 'a Slack message', limit: 40000 },
+	{ name: 'a GitHub comment', limit: 65536 }
+];
+
+/** Which channels a payload of `chars` characters is too long for. */
+export function tooLongFor(chars) {
+	return CHANNELS.filter((channel) => chars > channel.limit).map((channel) => channel.name);
 }
 
 export function formatBytes(bytes) {

@@ -13,7 +13,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
@@ -112,6 +112,51 @@ test('the declared engine is one the code actually runs on', () => {
 	// cannot keep -- verified by running the suite on 18, where it fails.
 	const declared = Number(pkg.engines.node.match(/(\d+)/)[1]);
 	assert.ok(declared >= 20, 'Web Crypto is not a reliable global below Node 20');
+});
+
+test('no file in the repository contains a credential-shaped string', () => {
+	// GitHub push protection blocked a push over a *test fixture* that looked
+	// like a real Stripe key. It was right to: a repository that ships
+	// credential-shaped strings trains everyone to wave scanners through, and
+	// docs/scanners.md asks other people not to do this.
+	//
+	// Fixtures only need to be distinctive, not realistic — these tests check
+	// that values never leak while names are shown, and a value that cannot be
+	// mistaken for a live key serves that just as well.
+	const patterns = [
+		[/sk_live_[0-9A-Za-z]{8,}/, 'Stripe secret key'],
+		[/pk_live_[0-9A-Za-z]{8,}/, 'Stripe publishable key'],
+		[/AKIA[0-9A-Z]{16}/, 'AWS access key id'],
+		[/ghp_[0-9A-Za-z]{20,}/, 'GitHub personal access token'],
+		[/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, 'private key']
+	];
+
+	// Read and match in JS rather than shelling out to grep: grep silently
+	// found nothing in these very files, because some contain characters it
+	// treats as binary. That false clean is how the last one slipped through.
+	const skip = new Set(['node_modules', '.git', 'icons']);
+	const offenders = [];
+
+	const walk = (dir) => {
+		for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+			if (skip.has(entry.name)) continue;
+			const rel = dir ? `${dir}/${entry.name}` : entry.name;
+
+			if (entry.isDirectory()) {
+				walk(rel);
+			} else if (/\.(js|mjs|md|json|yml|yaml|html|css|txt)$/.test(entry.name)) {
+				const source = readFileSync(join(root, rel), 'utf8');
+				for (const [pattern, label] of patterns) {
+					const match = pattern.exec(source);
+					if (match) offenders.push(`${rel}: ${label} (${match[0].slice(0, 24)}…)`);
+				}
+			}
+		}
+	};
+
+	walk('');
+
+	assert.deepEqual(offenders, [], `credential-shaped strings found:\n  ${offenders.join('\n  ')}`);
 });
 
 test('the package has no dependencies', () => {

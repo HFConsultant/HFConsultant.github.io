@@ -20,7 +20,7 @@ const CLI = join(root, 'cli', 'secure-term.js');
 const PASS = 'tractor-window-brisket-9';
 
 const ENV_FILE = `# Production credentials
-STRIPE_SECRET_KEY=sk_live_51H8xQ2eZvKYlo2CfakeKEY
+STRIPE_SECRET_KEY=not-a-real-stripe-key-9f3a7c21
 DATABASE_URL=postgres://admin:hunter2@db.internal:5432/app
 `;
 
@@ -241,7 +241,7 @@ test('reports variable names but never values', async () => {
 	const { stderr } = await cli(['encrypt'], { input: ENV_FILE });
 
 	assert.match(stderr, /STRIPE_SECRET_KEY/, 'names are useful and should be shown');
-	for (const value of ['sk_live_51H8xQ2eZvKYlo2CfakeKEY', 'hunter2', 'postgres://admin']) {
+	for (const value of ['not-a-real-stripe-key-9f3a7c21', 'hunter2', 'postgres://admin']) {
 		assert.ok(!stderr.includes(value), `the CLI printed a secret value: ${value}`);
 	}
 });
@@ -351,6 +351,56 @@ test('accepts a large text file, the book-length case', async () => {
 		assert.equal((await cli(['decrypt', enc, '-o', out])).code, 0);
 		assert.equal(readFileSync(out, 'utf8'), text);
 	});
+});
+
+test('compresses large text and says so, without being asked', async () => {
+	const text = 'The quick brown fox jumps over the lazy dog.\n'.repeat(500);
+	const { code, stdout, stderr } = await cli(['encrypt'], { input: text });
+
+	assert.equal(code, 0);
+	assert.match(stdout.trim(), /^STv2\./, 'should have chosen the compressed format');
+	assert.match(stderr, /compressed/i);
+	assert.match(stderr, /% smaller/);
+});
+
+test('--no-compress opts out, and both forms round-trip', async () => {
+	const text = 'The quick brown fox jumps over the lazy dog.\n'.repeat(500);
+
+	const squeezed = await cli(['encrypt'], { input: text });
+	const plain = await cli(['encrypt', '--no-compress'], { input: text });
+
+	assert.match(plain.stdout.trim(), /^STv1\./);
+	assert.ok(squeezed.stdout.length < plain.stdout.length / 2);
+
+	for (const payload of [squeezed.stdout, plain.stdout]) {
+		const back = await cli(['decrypt'], { input: payload });
+		assert.equal(back.stdout, text);
+	}
+});
+
+test('warns when a payload is too long to paste, and stays quiet when it is not', async () => {
+	// The channel is the real limit, and finding out after pasting is too late.
+	const huge = await cli(['encrypt', '--no-compress'], {
+		input: 'x'.repeat(60_000).replace(/x/g, () => String.fromCharCode(33 + Math.random() * 90))
+	});
+	assert.match(huge.stderr, /Too long to paste/);
+	assert.match(huge.stderr, /Slack/);
+
+	const small = await cli(['encrypt'], { input: 'hunter2' });
+	assert.ok(!/Too long to paste/.test(small.stderr));
+});
+
+test('reports the payload length in characters, which is what channels count', async () => {
+	const { stderr } = await cli(['encrypt'], { input: 'a short secret' });
+	assert.match(stderr, /Payload: \d+ characters/);
+});
+
+test('the limits topic carries the measured figures', async () => {
+	const { code, stderr } = await cli(['help', 'limits']);
+	assert.equal(code, 0);
+	assert.match(stderr, /2,953/, 'the QR ceiling');
+	assert.match(stderr, /40,000/, 'the Slack ceiling');
+	assert.match(stderr, /age/, 'and where to go for real files');
 });
 
 test('there is no flag that takes a passphrase on the command line', async () => {

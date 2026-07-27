@@ -52,7 +52,7 @@ async function withProject(fn) {
 async function setUp(dir) {
 	writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
 	await cli(['init', '-q'], { cwd: dir });
-	writeFileSync(join(dir, '.env'), 'DATABASE_URL=postgres://prod/db\nAPI_KEY=sk_live_x\n');
+	writeFileSync(join(dir, '.env'), 'DATABASE_URL=postgres://prod/db\nAPI_KEY=not-a-real-stripe-key\n');
 	await cli(['encrypt', '.env', '-o', '.env.enc', '-q'], { cwd: dir });
 	rmSync(join(dir, '.env'));
 	return readFileSync(join(dir, '.secure-term.key'), 'utf8').trim();
