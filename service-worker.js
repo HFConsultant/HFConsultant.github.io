@@ -23,7 +23,8 @@ const APP_SHELL = [
 	'./js/register-sw.js',
 	'./manifest.json',
 	'./icons/icon-192x192.png',
-	'./icons/icon-512x512.png'
+	'./icons/icon-512x512.png',
+	'./icons/icon-maskable-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {
