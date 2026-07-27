@@ -554,6 +554,7 @@ function promptSecret(stream, label) {
 		stream.resume();
 
 		let value = '';
+		let inEscape = false;
 
 		const finish = (fn, arg) => {
 			stream.off('data', onData);
@@ -565,6 +566,19 @@ function promptSecret(stream, label) {
 
 		const onData = (chunk) => {
 			for (const ch of chunk.toString('utf8')) {
+				// In raw mode an arrow key arrives as ESC [ D. Dropping only the
+				// ESC would let its printable tail through, silently embedding
+				// "[D" in the passphrase. Consume the whole sequence instead: a
+				// letter or '~' is the final byte of CSI and SS3 sequences.
+				if (inEscape) {
+					if (/[a-zA-Z~]/.test(ch)) inEscape = false;
+					continue;
+				}
+				if (ch === '\u001b') {
+					inEscape = true;
+					continue;
+				}
+
 				if (ch === '\r' || ch === '\n') return finish(resolve, value);
 				if (ch === '\u0003') return finish(reject, new Interrupted()); // Ctrl-C
 				if (ch === '\u0004') return finish(resolve, value); // Ctrl-D
@@ -574,6 +588,12 @@ function promptSecret(stream, label) {
 						value = value.slice(0, -1);
 						process.stderr.write('\b \b');
 					}
+					continue;
+				}
+
+				if (ch === '\u0015') { // Ctrl-U: start the line over
+					process.stderr.write('\b \b'.repeat(value.length));
+					value = '';
 					continue;
 				}
 

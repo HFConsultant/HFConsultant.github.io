@@ -8,7 +8,7 @@
  * Bump CACHE_NAME on every release. Old caches are deleted on activate.
  */
 
-const CACHE_NAME = 'secure-terminal-v2';
+const CACHE_NAME = 'secure-terminal-v3';
 
 /**
  * Relative paths, so the worker also works when the app is served from a

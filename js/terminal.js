@@ -32,6 +32,27 @@ const ICON_DOWNLOAD = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="fa
 const MAX_FILE_BYTES = 1024 * 1024;
 
 /**
+ * Does this text look like something we encrypted — in either format?
+ *
+ * Used to decide what a dropped file means. Getting this wrong in the legacy
+ * direction is the bad case: a pre-2.0 payload treated as plaintext would be
+ * silently encrypted a second time, producing a file that decrypts to
+ * gibberish-looking base64 and a very confused owner.
+ */
+function isPayload(text) {
+	if (text.startsWith('STv1.')) return true;
+
+	// Pre-2.0 format: btoa(JSON.stringify({salt, iv, data})), one line.
+	if (!/^[A-Za-z0-9+/=]+$/.test(text)) return false;
+	try {
+		const parsed = JSON.parse(atob(text));
+		return Array.isArray(parsed?.salt) && Array.isArray(parsed?.iv) && Array.isArray(parsed?.data);
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Each flow is a sequence of prompts. `secret: true` means the value is masked
  * on entry and never echoed; `optional: true` means an empty line skips it.
  */
@@ -391,8 +412,8 @@ const terminal = {
 
 		this.echo(`(dropped ${file.name})`);
 
-		const looksEncrypted = text.trim().startsWith('STv1.');
-		this.startWith(looksEncrypted ? 'decrypt' : 'encrypt', text.trim(), file.name);
+		const trimmed = text.trim();
+		this.startWith(isPayload(trimmed) ? 'decrypt' : 'encrypt', trimmed, file.name);
 	},
 
 	cancel(message = 'Cancelled.') {
