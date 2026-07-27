@@ -141,6 +141,68 @@ with a separator instead of concatenated — is not.
 
 ---
 
+## Phase 3 — the CLI, npm packaging, and the audit (2026)
+
+The direction-setting prompt, condensed:
+
+> One use case that would be sensational is sending API keys and other
+> secrets essential for a .env file but which can't be git tracked. Solutions
+> exist, but a universal tool seems appealing — like the Swiss Army Knife.
+
+Two constraints from later prompts shaped everything: secret scanners flag
+things by shape, so payloads must not trip them ("something that always gets
+flagged, even when it's safe, is a headache"), and *"simple and
+straightforward (elegant) wins over complicated and/or convoluted."* Those
+two lines are why the tool encrypts whole files rather than values in place,
+why the payload has a greppable `STv1.` prefix with a published allowlist
+rule, and why the repo is one package with one core module and two
+front-ends instead of a workspace.
+
+One prompt was a single sentence with outsized effect: *"Let's make sure we
+have a good `--help` for users of varying levels of tech savvy."* That
+produced the orientation-on-bare-invocation, examples-before-options
+ordering, topic pages, and errors that suggest the next command — and tests
+that pin the ordering so it cannot silently regress.
+
+### What running things caught that reading them did not
+
+- **`engines: ">=18"` was a lie.** Written by assumption, disproved by
+  running the suite on Node 18.15.0, where 20 of 66 tests fail — Node only
+  exposes Web Crypto as a global from v19. The floor is now 20, and CI tests
+  the floor instead of assuming it.
+- **`readFileSync(0)` fails with EAGAIN on a live pipe**, which broke
+  `encrypt | decrypt` chaining entirely. Found by running the pipeline, not
+  by reading the code that "obviously" handled stdin.
+- **The npm package was verified by installing it** — packed tarball, local
+  dependency, global install, import-by-name — not by assuming `files` was
+  right. A packaging test now follows the CLI's import graph so a module
+  outside the whitelist fails the build.
+
+### The audit (this phase's closing prompt)
+
+> Let's do a thorough audit of our work so far to make sure there's nothing
+> left to improve, before publishing.
+
+The audit found a critical bug that every earlier green test run had missed:
+**legacy payloads encrypted with a pepper could not be decrypted.** The
+original app combined passphrase and pepper by bare concatenation; the
+rewritten legacy path reused the new separator logic. The failure message —
+"check the passphrase and pepper" — would have told the owner of an old
+wallet backup that their memory was wrong when the code was. The legacy test
+had only covered the no-pepper path, which is the reviewer's lesson in
+miniature: a test suite proves the cases it contains, not the ones it
+implies. The fix reproduces the original combination verbatim, with a
+regression test built on the original scheme.
+
+The same audit pass also caught: a stale service-worker cache name, arrow
+keys embedding `[D` into passphrases at the masked prompt (found by driving
+the prompt through a pseudo-terminal with `expect` — and the first version
+of that test was itself wrong, because Tcl's `\x` escape is greedy),
+dropped legacy files being re-encrypted instead of opened, and README
+numbers that had drifted from reality.
+
+---
+
 ## Reflection
 
 The most useful thing AI did here was write the parts that are tedious and

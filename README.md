@@ -99,7 +99,7 @@ npx secure-term --help          # no install
 npm install -g secure-term      # or keep it around
 ```
 
-Needs Node 20 or newer. Zero dependencies — the whole package is 18 kB.
+Needs Node 20 or newer. Zero dependencies — the whole package is about 21 kB.
 
 ```bash
 secure-term encrypt .env -o .env.enc     # scramble a file
@@ -217,10 +217,10 @@ promise. There are no third-party scripts, no fonts from a CDN, no analytics,
 and no cookies. Nothing is written to `localStorage`; reload the page and the
 session is gone.
 
-You can verify all of this rather than take it on trust: it is under 2,000
+You can verify all of this rather than take it on trust: it is about 2,000
 lines of unminified, dependency-free JavaScript, and the network tab stays
 empty after load. The CLI has no dependencies either — the published package is
-18 kB.
+about 21 kB.
 
 ## Install
 
@@ -250,7 +250,8 @@ node cli/secure-term.js --help
 
 ### Tests
 
-57 tests under Node's built-in runner, no dependencies:
+A dependency-free suite under Node's built-in runner — 67 tests at the time of
+writing; `npm test` is the source of truth:
 
 ```bash
 npm test
