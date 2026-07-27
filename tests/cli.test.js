@@ -289,6 +289,70 @@ test('accepts the same single-letter commands as the web app', async () => {
 
 // -------------------------------------------------------------------- security
 
+test('refuses a binary file instead of silently destroying it', async () => {
+	// Regression test for real data loss. Reading a PNG as utf8 replaces every
+	// invalid byte with U+FFFD, which is not reversible: a 38,935-byte image
+	// came back as 70,585 bytes of garbage, with both encrypt and decrypt
+	// reporting success. Anyone who deleted the original had lost it.
+	await withTempDir(async (dir) => {
+		const png = join(dir, 'image.png');
+		const bytes = Buffer.concat([
+			Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+			Buffer.from(Array.from({ length: 512 }, (_, i) => i % 256))
+		]);
+		writeFileSync(png, bytes);
+
+		const { code, stderr, stdout } = await cli(['encrypt', png]);
+		assert.equal(code, 3);
+		assert.match(stderr, /not a text file/i);
+		assert.match(stderr, /Nothing was encrypted/);
+		assert.equal(stdout, '', 'no payload should be produced');
+
+		// And it must say what to do instead, not just refuse.
+		assert.match(stderr, /base64/);
+	});
+});
+
+test('refuses binary arriving on stdin too', async () => {
+	const { code, stderr } = await cli(['encrypt'], {
+		input: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
+	});
+	assert.equal(code, 3);
+	assert.match(stderr, /not text/i);
+});
+
+test('the documented base64 workaround round-trips a binary file', async () => {
+	// The error message tells people to pipe through base64. That advice has
+	// to actually work.
+	await withTempDir(async (dir) => {
+		const original = Buffer.from(Array.from({ length: 1024 }, (_, i) => (i * 7) % 256));
+		const encoded = original.toString('base64');
+
+		const sealed = await cli(['encrypt'], { input: encoded });
+		assert.equal(sealed.code, 0);
+
+		const opened = await cli(['decrypt'], { input: sealed.stdout });
+		assert.equal(opened.code, 0);
+		assert.ok(Buffer.from(opened.stdout.trim(), 'base64').equals(original));
+	});
+});
+
+test('accepts a large text file, the book-length case', async () => {
+	// The tool has no length limit by design; this pins that it stays true
+	// past the point where the base64 chunking kicks in.
+	await withTempDir(async (dir) => {
+		const book = join(dir, 'book.txt');
+		const text = 'The quick brown fox jumps over the lazy dog.\n'.repeat(12_000); // ~528 KB
+		writeFileSync(book, text);
+
+		const enc = join(dir, 'book.enc');
+		const out = join(dir, 'book.out');
+		assert.equal((await cli(['encrypt', book, '-o', enc])).code, 0);
+		assert.equal((await cli(['decrypt', enc, '-o', out])).code, 0);
+		assert.equal(readFileSync(out, 'utf8'), text);
+	});
+});
+
 test('there is no flag that takes a passphrase on the command line', async () => {
 	// Anything on argv is visible in `ps` and lands in shell history, so the
 	// only supported non-interactive route is the environment. This guards

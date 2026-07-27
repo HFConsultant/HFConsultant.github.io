@@ -107,6 +107,46 @@ export function describe(summary, { max = 8 } = {}) {
 	return out;
 }
 
+/**
+ * Can these bytes survive a trip through a JavaScript string?
+ *
+ * Everything here encrypts text: bytes are decoded as UTF-8, encrypted as a
+ * string, and re-encoded on the way out. Anything that is not valid UTF-8 —
+ * an image, a PDF, a zip — does not survive that. Invalid sequences are
+ * replaced with U+FFFD during decoding, and the replacement is not
+ * reversible, so the file comes back a different size and permanently ruined.
+ *
+ * Without this check that happens *silently*: both encryption and decryption
+ * report success and hand back a destroyed file. Anyone who deleted the
+ * original first has lost it.
+ *
+ * The test is exact rather than a heuristic: decode, re-encode, and compare.
+ * If the bytes are unchanged the round trip is lossless by construction.
+ *
+ * @param {Uint8Array|ArrayBuffer} bytes
+ * @returns {{ok: true, text: string} | {ok: false}}
+ */
+export function decodeUtf8Strict(bytes) {
+	const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+
+	let text;
+	try {
+		text = new TextDecoder('utf-8', { fatal: true }).decode(view);
+	} catch {
+		return { ok: false };
+	}
+
+	// fatal:true rejects malformed sequences, but re-encoding also catches the
+	// remaining edge cases (lone surrogates, and any decoder disagreement).
+	const reencoded = new TextEncoder().encode(text);
+	if (reencoded.length !== view.length) return { ok: false };
+	for (let i = 0; i < view.length; i++) {
+		if (reencoded[i] !== view[i]) return { ok: false };
+	}
+
+	return { ok: true, text };
+}
+
 export function formatBytes(bytes) {
 	if (bytes < 1024) return `${bytes} bytes`;
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

@@ -19,7 +19,9 @@ import {
 	DecryptionError
 } from './crypto.js';
 
-import { summarize, describe, encryptedName, decryptedName } from './envfile.js';
+import {
+	summarize, describe, encryptedName, decryptedName, decodeUtf8Strict
+} from './envfile.js';
 
 /** How long a decrypted secret sits on the clipboard before we try to clear it. */
 const CLIPBOARD_CLEAR_MS = 45000;
@@ -397,14 +399,30 @@ const terminal = {
 			return;
 		}
 
-		let text;
+		let bytes;
 		try {
-			text = await file.text();
+			bytes = new Uint8Array(await file.arrayBuffer());
 		} catch {
 			this.error(`Could not read ${file.name}.`);
 			return;
 		}
 
+		// Read bytes and verify, rather than file.text() which decodes as UTF-8
+		// and silently replaces anything invalid. Dropping an image on a
+		// terminal is an easy mistake, and the result would otherwise be a
+		// payload that decrypts to a ruined file with no sign anything failed.
+		const decoded = decodeUtf8Strict(bytes);
+		if (!decoded.ok) {
+			this.error(`${file.name} is not a text file, and this tool only handles text.`);
+			this.write(
+				'Encrypting it would destroy it — the bytes that are not text cannot be',
+				{ kind: 'muted' }
+			);
+			this.write('put back. Nothing was encrypted.', { kind: 'muted' });
+			return;
+		}
+
+		const text = decoded.text;
 		if (!text.trim()) {
 			this.error(`${file.name} is empty.`);
 			return;

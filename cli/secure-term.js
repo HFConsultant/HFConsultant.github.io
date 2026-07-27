@@ -26,10 +26,10 @@ import { tmpdir, constants as osConstants } from 'node:os';
 import { join } from 'node:path';
 
 import { encryptText, decryptText, ITERATIONS, PayloadError, DecryptionError } from '../js/crypto.js';
-import { summarize, describe } from '../js/envfile.js';
+import { summarize, describe, decodeUtf8Strict } from '../js/envfile.js';
 import { parseEnv } from '../js/envparse.js';
 
-const VERSION = '2.4.0';
+const VERSION = '2.5.0';
 
 /** The project key file, by convention — the analogue of Rails' master.key. */
 const KEY_FILE = '.secure-term.key';
@@ -643,7 +643,21 @@ async function readStdin() {
 	const chunks = [];
 	for await (const chunk of process.stdin) chunks.push(chunk);
 	stdinConsumed = true;
-	return Buffer.concat(chunks).toString('utf8');
+
+	// Same reasoning as readInput: verify rather than decode-and-hope, so
+	// `cat photo.png | secure-term encrypt` refuses instead of quietly
+	// producing a payload that decrypts to a ruined file.
+	const decoded = decodeUtf8Strict(Buffer.concat(chunks));
+	if (!decoded.ok) {
+		throw new IoError(
+			'The input is not text, and this tool only handles text.\n' +
+			'  Encrypting it would destroy it, silently. Nothing was encrypted.\n\n' +
+			'  Pipe it through base64 first:\n' +
+			'    base64 -i file.png | secure-term encrypt -o secret.enc\n' +
+			'    secure-term decrypt secret.enc | base64 -d > file.png'
+		);
+	}
+	return decoded.text;
 }
 
 /** Read the thing to be processed: a named file, or piped stdin, or typed in. */
@@ -655,11 +669,31 @@ async function readInput(options) {
 				`  Check the name, or run 'ls' to see what is in this directory.`
 			);
 		}
+		let raw;
 		try {
-			return readFileSync(options.file, 'utf8');
+			raw = readFileSync(options.file);
 		} catch (error) {
 			throw new IoError(`Could not read '${options.file}': ${error.message}`);
 		}
+
+		// Read as bytes and check, rather than decoding as utf8 and hoping.
+		// Reading a PNG with { encoding: 'utf8' } succeeds, silently replacing
+		// every invalid byte, and the file is then destroyed with both
+		// commands reporting success.
+		const decoded = decodeUtf8Strict(raw);
+		if (!decoded.ok) {
+			throw new IoError(
+				`'${options.file}' is not a text file, and this tool only handles text.\n` +
+				`  Encrypting it would destroy it: the bytes that are not valid text\n` +
+				`  cannot be put back, so you would get a broken file back and no\n` +
+				`  warning that it had happened. Nothing was encrypted.\n\n` +
+				`  To send a file like this, encode it as text first:\n` +
+				`    base64 -i '${options.file}' | secure-term encrypt -o secret.enc\n` +
+				`  and on the other end:\n` +
+					`    secure-term decrypt secret.enc | base64 -d > '${options.file}'`
+			);
+		}
+		return decoded.text;
 	}
 
 	if (!process.stdin.isTTY) {

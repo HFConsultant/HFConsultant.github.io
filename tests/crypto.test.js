@@ -168,6 +168,43 @@ test('still decrypts pre-v1 payloads that used a pepper', async () => {
 	await assert.rejects(() => decryptText(legacy.payload, 'legacy-pass', 'wrong'), DecryptionError);
 });
 
+test('round-trips text far larger than the base64 chunk size', async () => {
+	// Base64 encoding is done in 8 KB chunks for speed, so anything that
+	// crosses a chunk boundary — or lands exactly on one — has to be verified.
+	// An off-by-one here would corrupt data silently.
+	for (const size of [8191, 8192, 8193, 16384, 100_000]) {
+		const text = 'x'.repeat(size);
+		const payload = await encryptText(text, 'pw', '', FAST);
+		const back = await decryptText(payload, 'pw');
+		assert.equal(back.length, size, `length changed at ${size} bytes`);
+		assert.equal(back, text, `content changed at ${size} bytes`);
+	}
+});
+
+test('round-trips multi-byte characters across a chunk boundary', async () => {
+	// A character whose UTF-8 bytes straddle the boundary is the case most
+	// likely to break a chunked encoder.
+	const filler = 'a'.repeat(8190);
+	const text = `${filler}🔐${filler}中文`;
+	const payload = await encryptText(text, 'pw', '', FAST);
+	assert.equal(await decryptText(payload, 'pw'), text);
+});
+
+test('tolerates whitespace inside a payload', async () => {
+	// Payloads get wrapped by email clients and retyped from printed backups
+	// in readable groups. Neither format can legitimately contain whitespace,
+	// so stripping it is safe and rescues both cases.
+	const payload = await encryptText('recoverable', 'pw', '', FAST);
+
+	const wrapped = payload.replace(/(.{20})/g, '$1\n');
+	assert.equal(await decryptText(wrapped, 'pw'), 'recoverable');
+
+	const grouped = payload.match(/.{1,8}/g).join(' ');
+	assert.equal(await decryptText(grouped, 'pw'), 'recoverable');
+
+	assert.equal(await decryptText(`\n  ${payload}\t\n`, 'pw'), 'recoverable');
+});
+
 test('estimateStrength ranks passphrases sensibly', () => {
 	assert.equal(estimateStrength('').score, 0);
 	assert.equal(estimateStrength('').label, 'empty');
