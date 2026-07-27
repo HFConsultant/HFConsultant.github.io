@@ -19,11 +19,17 @@ import {
 	DecryptionError
 } from './crypto.js';
 
+import { summarize, describe, encryptedName, decryptedName } from './envfile.js';
+
 /** How long a decrypted secret sits on the clipboard before we try to clear it. */
 const CLIPBOARD_CLEAR_MS = 45000;
 
 const ICON_COPY = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>`;
 const ICON_CHECK = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+const ICON_DOWNLOAD = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
+
+/** Refuse to read a dropped file larger than this. */
+const MAX_FILE_BYTES = 1024 * 1024;
 
 /**
  * Each flow is a sequence of prompts. `secret: true` means the value is masked
@@ -31,23 +37,36 @@ const ICON_CHECK = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false
  */
 const FLOWS = {
 	encrypt: [
-		{ key: 'text', prompt: 'Text to encrypt:', secret: true },
+		{
+			key: 'text',
+			prompt: 'Text to encrypt:',
+			secret: true,
+			multiline: true,
+			summarise: true,
+			hint: 'Paste as many lines as you like — a whole .env is fine. Enter for a new line, ⌘/Ctrl + Enter when done.'
+		},
 		{ key: 'passphrase', prompt: 'Passphrase:', secret: true, strength: true },
 		{ key: 'pepper', prompt: 'Pepper (optional, Enter to skip):', secret: true, optional: true }
 	],
 	decrypt: [
-		{ key: 'payload', prompt: 'Paste the encrypted payload:' },
+		{
+			key: 'payload',
+			prompt: 'Paste the encrypted payload:',
+			multiline: true,
+			hint: 'Paste the whole payload. ⌘/Ctrl + Enter when done.'
+		},
 		{ key: 'passphrase', prompt: 'Passphrase:', secret: true },
 		{ key: 'pepper', prompt: 'Pepper (Enter if none was used):', secret: true, optional: true }
 	]
 };
 
 const HELP = [
-	['e', 'encrypt some text'],
+	['e', 'encrypt some text — paste as many lines as you like'],
 	['d', 'decrypt a payload'],
 	['c', 'clear the screen'],
 	['h', 'show this help'],
 	['about', 'how this works, and what it does not protect against'],
+	['drop', 'drag a file in — or a .enc to open it'],
 	['Esc', 'cancel the current step'],
 	['↑ ↓', 'previous commands']
 ];
@@ -79,9 +98,15 @@ const terminal = {
 	elements: {
 		output: null,
 		input: null,
+		textarea: null,
 		label: null,
-		form: null
+		form: null,
+		hint: null,
+		veil: null
 	},
+
+	/** Filename of a dropped file, used to name the download on the way out. */
+	sourceName: null,
 
 	// ---------------------------------------------------------------- output
 
@@ -110,8 +135,23 @@ const terminal = {
 	},
 
 	/** Echo the command the user just entered, honouring the secrecy rule. */
-	echo(text, { secret = false } = {}) {
-		this.write(`> ${secret ? '•'.repeat(8) : text}`, { kind: 'command' });
+	echo(text, { secret = false, multiline = false } = {}) {
+		if (secret) {
+			this.write(`> ${'•'.repeat(8)}`, { kind: 'command' });
+			return;
+		}
+
+		if (multiline) {
+			// A pasted payload can be hundreds of characters. Echoing it whole
+			// buries the conversation, so show enough to recognise it by.
+			const lines = text.split('\n');
+			const head = lines[0].length > 56 ? `${lines[0].slice(0, 56)}…` : lines[0];
+			const more = lines.length > 1 ? ` (+${lines.length - 1} more lines)` : '';
+			this.write(`> ${head}${more}`, { kind: 'command' });
+			return;
+		}
+
+		this.write(`> ${text}`, { kind: 'command' });
 	},
 
 	error(message) {
@@ -129,24 +169,74 @@ const terminal = {
 	 * @param {boolean} isSecret  true for decrypted plaintext, which we also try
 	 *                            to clear from the clipboard afterwards
 	 */
-	writeResult(value, isSecret) {
+	writeResult(value, isSecret, downloadName = null) {
 		const line = document.createElement('div');
 		line.className = 'line line--result';
 
-		const button = document.createElement('button');
-		button.className = 'copy-btn';
-		button.type = 'button';
-		button.innerHTML = ICON_COPY;
-		button.setAttribute('aria-label', 'Copy to clipboard');
-		button.addEventListener('click', () => this.copy(value, button, isSecret));
+		const actions = document.createElement('div');
+		actions.className = 'result-actions';
+
+		const copy = document.createElement('button');
+		copy.className = 'copy-btn';
+		copy.type = 'button';
+		copy.innerHTML = ICON_COPY;
+		copy.setAttribute('aria-label', 'Copy to clipboard');
+		copy.addEventListener('click', () => this.copy(value, copy, isSecret));
+		actions.appendChild(copy);
+
+		if (downloadName) {
+			const download = document.createElement('button');
+			download.className = 'copy-btn';
+			download.type = 'button';
+			download.innerHTML = ICON_DOWNLOAD;
+			download.setAttribute('aria-label', `Download as ${downloadName}`);
+			download.title = downloadName;
+			download.addEventListener('click', () => this.download(value, downloadName));
+			actions.appendChild(download);
+		}
 
 		const text = document.createElement('span');
 		text.className = 'result-text';
 		text.textContent = value;
 
-		line.append(button, text);
+		line.append(actions, text);
 		this.elements.output.appendChild(line);
 		this.scrollToBottom();
+	},
+
+	/**
+	 * Save a result to a file.
+	 *
+	 * Uses a blob URL rather than a data: URI so the content never appears in
+	 * a URL, and revokes it immediately afterwards.
+	 */
+	download(value, filename) {
+		const blob = new Blob([value], { type: 'application/octet-stream' });
+		const url = URL.createObjectURL(blob);
+
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = filename;
+		link.click();
+
+		URL.revokeObjectURL(url);
+		this.write(`Saved as ${filename}`, { kind: 'muted' });
+	},
+
+	/** Report what a block of text contains, by variable name and never value. */
+	reportContents(text, label) {
+		const summary = summarize(text);
+		const lines = describe(summary);
+		const what = summary.kind === 'env'
+			? `${label} a .env file: ${lines[0]}`
+			: `${label}: ${lines[0]}`;
+
+		this.write(what, { kind: 'muted' });
+		if (summary.kind === 'env') {
+			this.write(`  ${lines[1]}`, { kind: 'muted' });
+			if (lines[2]) this.write(`  ${lines[2]}`, { kind: 'warn' });
+		}
+		return summary;
 	},
 
 	async copy(value, button, isSecret) {
@@ -199,25 +289,110 @@ const terminal = {
 
 	// ----------------------------------------------------------- input mode
 
-	/** Switch the prompt between normal and masked entry. */
-	setInputMode(step) {
-		const { input, label } = this.elements;
-		const secret = Boolean(step?.secret);
+	/** The field currently accepting input: the one-line box or the textarea. */
+	get field() {
+		return this.elements.textarea.hidden ? this.elements.input : this.elements.textarea;
+	},
 
-		input.type = secret ? 'password' : 'text';
-		input.setAttribute('autocomplete', secret ? 'new-password' : 'off');
+	/**
+	 * Point the prompt at the right field and configure it for this step.
+	 *
+	 * Three things vary: whether input is masked, whether it accepts more than
+	 * one line, and what the label announces. A textarea cannot be masked --
+	 * there is no type="password" for it -- which is fine, because the reason
+	 * for masking is the scrollback, and multiline input is still never echoed.
+	 */
+	setInputMode(step) {
+		const { input, textarea, label, hint } = this.elements;
+		const secret = Boolean(step?.secret);
+		const multiline = Boolean(step?.multiline);
+
+		textarea.hidden = !multiline;
+		input.hidden = multiline;
+
+		if (multiline) {
+			textarea.value = '';
+			label.setAttribute('for', 'terminal-textarea');
+			textarea.setAttribute('aria-label', step.prompt);
+		} else {
+			input.type = secret ? 'password' : 'text';
+			input.setAttribute('autocomplete', secret ? 'new-password' : 'off');
+			input.setAttribute('aria-label', step ? step.prompt : 'Terminal command');
+			input.placeholder = step ? '' : "type 'h' for help, or drop a file here";
+			label.setAttribute('for', 'terminal-input');
+		}
+
 		label.textContent = step ? step.prompt : 'Command';
-		input.setAttribute('aria-label', step ? step.prompt : 'Terminal command');
-		input.placeholder = step ? '' : "type 'h' for help";
+
+		if (step?.hint) {
+			hint.textContent = step.hint;
+			hint.hidden = false;
+		} else {
+			hint.hidden = true;
+		}
+
+		this.field.focus();
 	},
 
 	// --------------------------------------------------------------- flows
 
 	start(mode) {
+		this.sourceName = null;
 		this.state = { mode, step: 0, data: {} };
 		const step = FLOWS[mode][0];
 		this.write(step.prompt, { kind: 'prompt' });
 		this.setInputMode(step);
+	},
+
+	/**
+	 * Begin a flow with content already in hand, skipping its first step.
+	 *
+	 * Used by file drop: the text is known, so the only thing left to ask for
+	 * is the passphrase.
+	 */
+	startWith(mode, text, filename) {
+		this.sourceName = filename || null;
+		this.state = { mode, step: 1, data: { [FLOWS[mode][0].key]: text } };
+
+		this.reportContents(text, mode === 'encrypt' ? 'Ready to encrypt' : 'Read');
+
+		const step = FLOWS[mode][1];
+		this.write(step.prompt, { kind: 'prompt' });
+		this.setInputMode(step);
+	},
+
+	/**
+	 * Handle a dropped file.
+	 *
+	 * A file that already holds a payload is decrypted rather than encrypted
+	 * again, since dropping a .enc back in obviously means "open this".
+	 */
+	async handleFile(file) {
+		if (file.size > MAX_FILE_BYTES) {
+			this.error(
+				`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. ` +
+				`This is built for keys and config, not archives — the limit is 1 MB.`
+			);
+			return;
+		}
+
+		let text;
+		try {
+			text = await file.text();
+		} catch {
+			this.error(`Could not read ${file.name}.`);
+			return;
+		}
+
+		if (!text.trim()) {
+			this.error(`${file.name} is empty.`);
+			return;
+		}
+
+		this.echo(`(dropped ${file.name})`);
+
+		const looksEncrypted = text.trim().startsWith('STv1.');
+		this.startWith(looksEncrypted ? 'decrypt' : 'encrypt', text.trim(), file.name);
 	},
 
 	cancel(message = 'Cancelled.') {
@@ -239,6 +414,9 @@ const terminal = {
 
 		this.state.data[step.key] = value;
 
+		// Confirm what was captured before asking for a passphrase, so a
+		// truncated paste is caught while it still costs nothing to fix.
+		if (step.summarise && value) this.reportContents(value, 'Ready to encrypt');
 		if (step.strength && value) this.reportStrength(value);
 
 		this.state.step += 1;
@@ -285,12 +463,17 @@ const terminal = {
 				const payload = await encryptText(data.text, data.passphrase, data.pepper);
 				working.remove();
 				this.write('Encrypted. Store this somewhere you can get it back:', { kind: 'ok' });
-				this.writeResult(payload, false);
+				this.writeResult(payload, false, encryptedName(this.sourceName || 'secret.txt'));
+				this.write('Safe to send anywhere. Tell the other person the passphrase', {
+					kind: 'muted'
+				});
+				this.write('some other way — not in the same message.', { kind: 'muted' });
 			} else {
 				const plaintext = await decryptText(data.payload, data.passphrase, data.pepper);
 				working.remove();
 				this.write('Decrypted:', { kind: 'ok' });
-				this.writeResult(plaintext, true);
+				this.reportContents(plaintext, 'Recovered');
+				this.writeResult(plaintext, true, decryptedName(this.sourceName || 'secret.txt.enc'));
 			}
 		} catch (err) {
 			working.remove();
@@ -362,13 +545,16 @@ const terminal = {
 	// --------------------------------------------------------------- input
 
 	async submit() {
-		const { input } = this.elements;
-		const value = input.value.trim();
-		input.value = '';
+		const field = this.field;
+		const value = field.value.trim();
+		field.value = '';
 
 		if (this.state.mode) {
 			const step = FLOWS[this.state.mode][this.state.step];
-			this.echo(value || '(skipped)', { secret: step.secret && Boolean(value) });
+			this.echo(value || '(skipped)', {
+				secret: step.secret && Boolean(value),
+				multiline: step.multiline
+			});
 			await this.advance(value);
 			return;
 		}
@@ -395,19 +581,77 @@ const terminal = {
 		this.elements.input.value = this.history[this.historyIndex] ?? '';
 	},
 
+	// ----------------------------------------------------------- file drop
+
+	/**
+	 * Accept files dropped anywhere on the window.
+	 *
+	 * dragover must be cancelled or the browser navigates to the file instead,
+	 * which would replace the app with a plain-text view of the user's secrets.
+	 * The counter exists because dragenter/dragleave fire for every child
+	 * element crossed, so tracking depth is the only reliable way to know when
+	 * the pointer has actually left the window.
+	 */
+	initDropTarget() {
+		let depth = 0;
+
+		const showVeil = (visible) => {
+			this.elements.veil.hidden = !visible;
+		};
+
+		window.addEventListener('dragenter', (event) => {
+			if (![...event.dataTransfer.types].includes('Files')) return;
+			depth += 1;
+			showVeil(true);
+		});
+
+		window.addEventListener('dragover', (event) => event.preventDefault());
+
+		window.addEventListener('dragleave', () => {
+			depth = Math.max(0, depth - 1);
+			if (depth === 0) showVeil(false);
+		});
+
+		window.addEventListener('drop', (event) => {
+			event.preventDefault();
+			depth = 0;
+			showVeil(false);
+
+			const file = event.dataTransfer?.files?.[0];
+			if (file) this.handleFile(file);
+		});
+	},
+
 	// ----------------------------------------------------------------- init
 
 	init() {
 		this.elements.output = document.querySelector('.terminal-output');
 		this.elements.input = document.querySelector('.terminal-input');
+		this.elements.textarea = document.querySelector('.terminal-textarea');
 		this.elements.label = document.querySelector('.terminal-label');
 		this.elements.form = document.querySelector('.terminal-input-line');
+		this.elements.hint = document.querySelector('.terminal-hint');
+		this.elements.veil = document.querySelector('.drop-veil');
 
 		if (!this.elements.output || !this.elements.input) return;
 
 		this.elements.form.addEventListener('submit', (event) => {
 			event.preventDefault();
 			this.submit();
+		});
+
+		this.initDropTarget();
+
+		// In the textarea, Enter inserts a newline and only a modifier submits;
+		// otherwise pasting a .env would submit on its first line break.
+		this.elements.textarea.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+				event.preventDefault();
+				this.submit();
+			} else if (event.key === 'Escape') {
+				event.preventDefault();
+				this.cancel();
+			}
 		});
 
 		this.elements.input.addEventListener('keydown', (event) => {
@@ -435,7 +679,7 @@ const terminal = {
 		this.elements.output.addEventListener('mouseup', (event) => {
 			if (event.target.closest('button')) return;
 			if (window.getSelection()?.toString()) return;
-			this.elements.input.focus();
+			this.field.focus();
 		});
 
 		this.setInputMode(null);

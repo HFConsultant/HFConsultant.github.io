@@ -50,15 +50,37 @@
 		<div class="terminal-output" role="log" aria-live="polite" aria-label="Terminal output"
 			tabindex="0"></div>
 
+		<p class="terminal-hint" id="terminal-hint" hidden></p>
+
 		<form class="terminal-input-line" autocomplete="off">
 			<label class="terminal-label" for="terminal-input">Command</label>
 			<span class="prompt" aria-hidden="true">&gt;</span>
+
 			<input class="terminal-input" id="terminal-input" name="command" type="text"
 				autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"
-				placeholder="type 'h' for help" aria-label="Terminal command" autofocus>
+				placeholder="type 'h' for help, or drop a file here" aria-label="Terminal command"
+				autofocus>
+
+			<!--
+				A .env is inherently multi-line, so long input swaps to this and
+				the single-line field is hidden. Only ever one of the two is
+				visible, and the label's `for` follows whichever is active.
+			-->
+			<textarea class="terminal-textarea" id="terminal-textarea" name="text" rows="4"
+				autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"
+				aria-label="Text input" hidden></textarea>
+
 			<button class="submit-btn" type="submit" aria-label="Run">⏎</button>
 		</form>
 	</main>
+
+	<!-- Shown only while a file is being dragged over the window. -->
+	<div class="drop-veil" id="drop-veil" hidden aria-hidden="true">
+		<div class="drop-veil-inner">
+			<strong>Drop to encrypt</strong>
+			<span>the file is read in this browser and goes nowhere else</span>
+		</div>
+	</div>
 
 	<noscript>
 		<p class="noscript">Secure Terminal needs JavaScript — all the encryption runs in your

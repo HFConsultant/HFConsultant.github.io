@@ -130,6 +130,12 @@ body {
 	margin: 0.5rem 0;
 }
 
+.result-actions {
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+}
+
 .result-text {
 	flex: 1;
 	padding: 0.6rem 0.75rem;
@@ -187,6 +193,73 @@ body {
 .terminal-input::placeholder {
 	color: var(--muted);
 	opacity: 0.7;
+}
+
+.terminal-textarea {
+	flex: 1;
+	min-width: 0;
+	background: var(--surface);
+	border: 1px solid rgba(0, 255, 157, 0.35);
+	border-radius: 4px;
+	padding: 0.5rem;
+	color: var(--text);
+	font-family: var(--mono);
+	font-size: 1rem;
+	line-height: 1.4;
+	resize: vertical;
+	outline: none;
+}
+
+.terminal-textarea:focus-visible {
+	border-color: var(--primary);
+}
+
+.terminal-hint {
+	flex-shrink: 0;
+	padding: 0 1.25rem 0.5rem;
+	background: rgba(0, 0, 0, 0.3);
+	color: var(--muted);
+	font-size: 0.78rem;
+	line-height: 1.4;
+}
+
+/* ------------------------------------------------------------- file drop */
+
+.drop-veil {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(10, 10, 10, 0.88);
+	backdrop-filter: blur(2px);
+}
+
+.drop-veil[hidden] {
+	display: none;
+}
+
+.drop-veil-inner {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	align-items: center;
+	text-align: center;
+	padding: 2.5rem 3rem;
+	border: 2px dashed var(--primary);
+	border-radius: var(--radius);
+	color: var(--primary);
+}
+
+.drop-veil-inner strong {
+	font-size: 1.25rem;
+}
+
+.drop-veil-inner span {
+	color: var(--muted);
+	font-size: 0.85rem;
+	max-width: 32ch;
 }
 
 .terminal-input:focus-visible {

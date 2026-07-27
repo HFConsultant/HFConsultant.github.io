@@ -35,25 +35,56 @@ test('every file the service worker precaches exists', () => {
 
 test('the service worker precaches every script, style and icon the page uses', () => {
 	const source = read('service-worker.js');
-	const html = read('index.html');
 
-	const referenced = [
-		...[...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]),
-		...[...html.matchAll(/<link[^>]+href="([^"]+)"/g)].map((m) => m[1])
-	].filter((path) => !path.startsWith('http'));
-
-	// js/crypto.js is imported by terminal.js rather than referenced in the
-	// HTML, so it would not appear above -- but omitting it would break the app
-	// offline just as completely.
-	referenced.push('js/crypto.js');
-
-	for (const path of referenced) {
+	for (const path of appDependencies()) {
 		assert.ok(
 			source.includes(`'./${path}'`),
-			`${path} is used by index.html but not precached, so it is unavailable offline`
+			`${path} is needed by the app but not precached, so it is unavailable offline`
 		);
 	}
 });
+
+/**
+ * Every same-origin file the page needs, following ES module imports.
+ *
+ * Walking the import graph rather than listing modules by hand: a module
+ * reached only through an import is invisible in the HTML, and forgetting to
+ * precache one breaks the app offline exactly as thoroughly as the original
+ * js/main.js bug did. Hard-coding the list here would reproduce that bug in
+ * the test meant to catch it.
+ */
+function appDependencies() {
+	const html = read('index.html');
+	const found = new Set(
+		[
+			...[...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]),
+			...[...html.matchAll(/<link[^>]+href="([^"]+)"/g)].map((m) => m[1])
+		].filter((path) => !path.startsWith('http'))
+	);
+
+	const queue = [...found].filter((path) => path.endsWith('.js'));
+
+	while (queue.length) {
+		const file = queue.shift();
+		if (!exists(file)) continue;
+
+		const imports = [...read(file).matchAll(/(?:^|\n)\s*import\s[^'"]*['"]([^'"]+)['"]/g)]
+			.map((m) => m[1])
+			.filter((specifier) => specifier.startsWith('.'));
+
+		for (const specifier of imports) {
+			// Resolve relative to the importing file's directory.
+			const dir = file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : '';
+			const resolved = join(dir, specifier).replace(/^\.\//, '');
+			if (!found.has(resolved)) {
+				found.add(resolved);
+				queue.push(resolved);
+			}
+		}
+	}
+
+	return [...found];
+}
 
 test('every file index.html references exists', () => {
 	const html = read('index.html');

@@ -20,6 +20,7 @@ const APP_SHELL = [
 	'./css/style.css',
 	'./js/terminal.js',
 	'./js/crypto.js',
+	'./js/envfile.js',
 	'./js/register-sw.js',
 	'./manifest.json',
 	'./icons/icon-192x192.png',
