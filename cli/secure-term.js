@@ -29,7 +29,7 @@ import { encryptText, decryptText, ITERATIONS, PayloadError, DecryptionError } f
 import { summarize, describe } from '../js/envfile.js';
 import { parseEnv } from '../js/envparse.js';
 
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 
 /** The project key file, by convention — the analogue of Rails' master.key. */
 const KEY_FILE = '.secure-term.key';
@@ -129,6 +129,7 @@ ${c.bold('FOR A PROJECT')}
     secure-term encrypt .env -o .env.enc ${c.dim('# commit .env.enc, never .env')}
     secure-term run -- npm run dev       ${c.dim('# run with the secrets loaded')}
     secure-term edit .env.enc            ${c.dim('# change them in your editor')}
+    secure-term backup                   ${c.dim('# seal the key with a memorable phrase')}
 
   ${c.dim('`run` works with any framework, because it just sets environment')}
   ${c.dim('variables: next dev, vite, django, go run — all the same.')}
@@ -153,6 +154,7 @@ ${c.bold('OPTIONS')}
 
 ${c.bold('LEARN MORE')}
   secure-term help project    ${c.dim('project keys, and any framework in one line')}
+  secure-term help backup     ${c.dim('sealing a project key with a memorable phrase')}
   secure-term help pepper     ${c.dim('the optional second secret, and why')}
   secure-term help sharing    ${c.dim('how to get a payload to someone safely')}
   secure-term help scanners   ${c.dim('stopping security scanners flagging payloads')}
@@ -168,6 +170,61 @@ ${c.yellow(c.bold('IMPORTANT'))}
 }
 
 const TOPICS = {
+	backup: `
+${c.bold('Turning the randomness back into something you can hold')}
+
+  A project key is 32 random bytes. That is what makes it strong, and it is
+  also what makes it a liability: you cannot memorise it, so it has to be
+  stored, and wherever you store it is a place someone could find it.
+
+  Rails leaves this unsolved — config/master.key is plaintext, so copying it
+  into cloud storage puts a plaintext key into cloud storage.
+
+  This is the tool's original trick applied to itself:
+
+    secure-term backup
+
+  It asks for a passphrase you could not forget — a whole sentence works
+  best — and seals the key with it. What comes out is meaningless to anyone
+  who does not know the phrase, so it can go anywhere:
+
+    printed and put in a drawer          emailed to yourself
+    in cloud storage                     photographed
+    written on the back of something     in a password manager
+
+  Something impossible to remember, protected by something impossible to
+  forget. Nothing memorable is ever written down; the memorable part stays
+  in your head and only the sealed form is stored.
+
+  ${c.bold('Getting it back')}
+    secure-term restore                  ${c.dim('# paste it, or:')}
+    secure-term restore key-backup.txt
+
+  That asks for the same phrase and rebuilds .secure-term.key.
+
+  ${c.bold('It is checked before you are told it worked')}
+  'backup' decrypts its own output and compares it to the key before
+  reporting success. A backup nobody has ever opened is not a backup, and
+  this is the one file where finding out later means the key is gone.
+
+  ${c.bold('Retyping it')}
+  The output is printed in short groups because it may be copied by hand.
+  Spaces and line breaks are ignored when restoring, so type it as shown.
+
+  ${c.red(c.bold('One rule'))}
+  ${c.red('Do not commit the backup to the repository it unlocks.')}
+  The repository already holds .env.enc. Putting the sealed key beside it
+  means a single guessed passphrase opens both — which is precisely what
+  generating a random key avoided. Store the backup somewhere the repository
+  is not.
+
+  ${c.bold('A pepper works here too')}
+    secure-term backup -p
+
+  Then the backup needs the phrase and a detail that only exists in your
+  head. See: secure-term help pepper
+`,
+
 	project: `
 ${c.bold('Project keys — one line for any framework')}
 
@@ -233,8 +290,13 @@ ${c.bold('Project keys — one line for any framework')}
   sensitive in the clone.
 
   ${c.bold('If you lose the key')}
-  The encrypted file cannot be recovered. Back the key up in a password
-  manager the day you create it.
+  The encrypted file cannot be recovered. Back the key up the day you create
+  it — either copy it into a password manager, or seal it with a phrase you
+  cannot forget so the backup is safe to keep anywhere:
+
+    secure-term backup
+
+  See: secure-term help backup
 `,
 
 	pepper: `
@@ -531,14 +593,17 @@ function normaliseCommand(word) {
 		e: 'encrypt', enc: 'encrypt', encrypt: 'encrypt',
 		d: 'decrypt', dec: 'decrypt', decrypt: 'decrypt',
 		h: 'help', help: 'help',
-		init: 'init', edit: 'edit', run: 'run'
+		init: 'init', edit: 'edit', run: 'run',
+		backup: 'backup', restore: 'restore'
 	};
 	if (aliases[lower]) return aliases[lower];
 
 	const suggestions = {
 		lock: 'encrypt', scramble: 'encrypt', seal: 'encrypt', hide: 'encrypt',
 		unlock: 'decrypt', unscramble: 'decrypt', open: 'decrypt', read: 'decrypt',
-		exec: 'run', start: 'run', setup: 'init'
+		exec: 'run', start: 'run', setup: 'init',
+		remember: 'backup', memorize: 'backup', seal_key: 'backup',
+		recover: 'restore', recall: 'restore'
 	};
 	if (suggestions[lower]) {
 		throw new UsageError(
@@ -779,14 +844,21 @@ async function collectSecrets(options) {
 	const pepperFromEnv = process.env.SECURE_TERM_PEPPER;
 	let passphrase = null;
 
+	// `backup` and `restore` set forbidKeyFile: their whole purpose is to move
+	// between the key and a memorable phrase, so letting a key file supply the
+	// passphrase would seal the key with itself — circular, and useless as a
+	// backup. An explicitly set environment variable is still honoured, since
+	// that is a deliberate choice rather than something found lying around.
+	const keyFilesAllowed = !options.forbidKeyFile;
+
 	if (!options.promptForce) {
-		if (options.keyFile) {
+		if (options.keyFile && keyFilesAllowed) {
 			passphrase = readKeyFile(options.keyFile);
 			if (!options.quiet) say(c.dim(`Using the key from ${options.keyFile}.`));
 		} else if (process.env.SECURE_TERM_PASSPHRASE) {
 			passphrase = process.env.SECURE_TERM_PASSPHRASE;
 			if (!options.quiet) say(c.dim('Using the passphrase from SECURE_TERM_PASSPHRASE.'));
-		} else if (existsSync(KEY_FILE)) {
+		} else if (existsSync(KEY_FILE) && keyFilesAllowed) {
 			passphrase = readKeyFile(KEY_FILE);
 			options.usedProjectKey = true;
 			if (!options.quiet) say(c.dim(`Using the project key from ${KEY_FILE}.`));
@@ -961,8 +1033,13 @@ async function doInit(options) {
 		say(`  secure-term encrypt .env -o .env.enc   ${c.dim('# commit .env.enc, not .env')}`);
 		say(`  secure-term run -- npm run dev         ${c.dim('# run with the secrets loaded')}`);
 		say('');
-		say(c.yellow(`Back up ${target} somewhere safe — a password manager is ideal.`));
-		say(c.yellow('Lose it and the encrypted file cannot be recovered.'));
+		say(c.yellow(`Back up ${target}. Lose it and the encrypted file`));
+		say(c.yellow('cannot be recovered — there is no reset.'));
+		say('');
+		say(`  ${c.bold('secure-term backup')}   ${c.dim('seal it with a phrase you cannot forget,')}`);
+		say(`                       ${c.dim('so the backup is safe to store anywhere')}`);
+		say(c.dim('  or copy the file into a password manager.'));
+		say('');
 		say(c.dim('Share it with teammates the way you would any other secret:'));
 		say(c.dim('  secure-term help sharing'));
 	}
@@ -999,6 +1076,172 @@ function ensureGitignored(target, options) {
 		`${prefix}\n# Secure Terminal project key — never commit this\n${line}\n`
 	);
 	return 'added';
+}
+
+/**
+ * Does this look like a project key rather than something else?
+ *
+ * Used when restoring, so that recovering the wrong blob — a .env.enc, say —
+ * fails with an explanation instead of quietly installing a key file full of
+ * environment variables that then fails to decrypt anything.
+ */
+function looksLikeKey(text) {
+	const trimmed = text.trim();
+	return !trimmed.includes('\n') && /^[A-Za-z0-9_-]{32,}$/.test(trimmed);
+}
+
+/**
+ * Break a payload into short groups on short lines.
+ *
+ * Only for display: a backup is meant to be printed and possibly retyped, and
+ * an unbroken 120-character string is miserable to transcribe. Decryption
+ * strips whitespace, so the grouped form pastes back in as-is.
+ */
+function forTranscription(payload) {
+	const groups = payload.match(/.{1,8}/g) ?? [];
+	const lines = [];
+	for (let i = 0; i < groups.length; i += 5) {
+		lines.push(`    ${groups.slice(i, i + 5).join(' ')}`);
+	}
+	return lines;
+}
+
+/**
+ * Seal the project key with a passphrase a human can remember.
+ *
+ * This is the original idea turned on the tool itself. The project key is 32
+ * bytes of randomness — unrememberable by construction — so it has to be
+ * stored somewhere, and Rails stores it as plaintext, which means backing it
+ * up puts a plaintext key wherever the backup goes.
+ *
+ * Sealed with a memorable phrase, the backup can live anywhere the phrase does
+ * not: printed in a drawer, in cloud storage, in an email to yourself, in a
+ * photograph. Something impossible to remember, protected by something
+ * impossible to forget.
+ */
+async function doBackup(options) {
+	const source = options.keyFile || KEY_FILE;
+	const key = readKeyFile(source);
+
+	if (!options.quiet) {
+		say(c.dim(`Sealing the key from ${source}.`));
+		say(c.dim('Choose a passphrase you could not forget — a whole sentence is'));
+		say(c.dim('ideal. It is the only thing that will open this backup, and'));
+		say(c.dim('there is no way to recover it.'));
+		say('');
+	}
+
+	// The key itself must never act as its own backup passphrase, and the
+	// project key file is sitting right there, so ignore every automatic
+	// source and insist on something typed.
+	const asked = { ...options, forbidKeyFile: true, needsConfirm: true, quiet: true };
+	const { passphrase, pepper } = await collectSecrets(asked);
+
+	const payload = await encryptText(key, passphrase, pepper, options.iterations);
+
+	// Verify before claiming success. A backup that has never been opened is
+	// not a backup, and this is the one artefact where discovering the problem
+	// later means the key is gone for good.
+	const recovered = await decryptText(payload, passphrase, pepper);
+	if (recovered !== key) {
+		throw new IoError('The backup failed to verify. Nothing was written.');
+	}
+
+	writeOutput(payload, options);
+
+	// Warning the user not to commit it and then leaving it trackable would be
+	// advice where a safeguard belongs. Same reasoning as init.
+	const ignored = options.out ? ensureGitignored(options.out, options) : null;
+
+	if (!options.quiet) {
+		say('');
+		say(c.green('Backup verified — it decrypts back to your key.'));
+		if (ignored === 'added') {
+			say(c.green(`Added ${options.out} to .gitignore — but see below.`));
+		}
+
+		if (!options.out) {
+			say('');
+			say(c.bold('Write this down, or keep it somewhere you will find it:'));
+			say('');
+			for (const line of forTranscription(payload)) say(c.green(line));
+			say('');
+			say(c.dim('Spaces and line breaks are ignored when restoring, so it can be'));
+			say(c.dim('retyped in these groups.'));
+		} else {
+			say(c.green(`Written to ${options.out}`));
+		}
+
+		say('');
+		say('Safe to store anywhere your passphrase is not: print it, email it to');
+		say('yourself, put it in cloud storage, photograph it. It is useless to');
+		say('anyone who does not know the phrase.');
+		say('');
+		say(c.yellow(c.bold('Do not commit it to this repository.')));
+		say(c.yellow('This repository already holds .env.enc. Keeping both in one place'));
+		say(c.yellow('means one guessed passphrase opens everything, which is exactly'));
+		say(c.yellow('what the generated key was protecting you from.'));
+		say('');
+		say(c.dim('Recover it later with: secure-term restore'));
+	}
+
+	return EXIT.OK;
+}
+
+/**
+ * Rebuild the project key from a sealed backup.
+ *
+ * The other half of doBackup: on a new machine, or after losing the key file,
+ * this turns the stored blob plus what is in your head back into
+ * .secure-term.key.
+ */
+async function doRestore(options) {
+	const target = options.out || KEY_FILE;
+
+	if (existsSync(target) && !options.force) {
+		throw new IoError(
+			`'${target}' already exists.\n` +
+			`  Restoring over it would replace the key this project is using.\n` +
+			`  If that is what you want: secure-term restore --force`
+		);
+	}
+
+	if (!options.file && process.stdin.isTTY && !options.quiet) {
+		say(c.dim('Paste the backup, then press Ctrl-D:'));
+	}
+	const blob = options.file ? readFileSync(options.file, 'utf8') : await readStdin();
+
+	if (!blob.trim()) {
+		throw new UsageError('There is nothing to restore — the input was empty.');
+	}
+
+	// Always ask: the point of a backup is that it is opened by memory, and a
+	// key file that happens to be lying around must not be used by accident.
+	const asked = { ...options, forbidKeyFile: true, quiet: true };
+	const { passphrase, pepper } = await collectSecrets(asked);
+
+	const key = (await decryptText(blob, passphrase, pepper)).trim();
+
+	if (!looksLikeKey(key)) {
+		throw new UsageError(
+			'That decrypted correctly, but it does not contain a project key.\n' +
+			'  It looks like a backup of something else — a .env.enc, perhaps.\n' +
+			'  To recover ordinary encrypted text, use: secure-term decrypt'
+		);
+	}
+
+	writeFileSync(target, `${key}\n`, { mode: 0o600 });
+	const ignored = ensureGitignored(target, options);
+
+	if (!options.quiet) {
+		say(c.green(`Restored ${target}`));
+		if (ignored === 'added') say(c.green('Added it to .gitignore'));
+		say('');
+		say(c.dim('Check it against this project:'));
+		say('  secure-term run -- npm run dev');
+	}
+
+	return EXIT.OK;
 }
 
 /**
@@ -1252,7 +1495,9 @@ async function main(argv) {
 		decrypt: doDecrypt,
 		init: doInit,
 		edit: doEdit,
-		run: doRun
+		run: doRun,
+		backup: doBackup,
+		restore: doRestore
 	};
 
 	try {

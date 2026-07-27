@@ -1,6 +1,6 @@
 {
   "name": "secure-term",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Encrypt a secret so you can send it through any channel. AES-256-GCM, no server, no dependencies. Works in the browser and the terminal.",
   "type": "module",
   "license": "MIT",

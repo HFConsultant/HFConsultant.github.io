@@ -128,6 +128,7 @@ secure-term init                      # generate a project key, gitignore it
 secure-term encrypt .env -o .env.enc  # commit .env.enc — never .env
 secure-term run -- npm run dev        # run with the secrets loaded
 secure-term edit .env.enc             # change them in $EDITOR
+secure-term backup                    # seal the key with a memorable phrase
 ```
 
 After `init`, every command finds the key automatically. Nobody types a
@@ -149,6 +150,61 @@ A key from `init` is different: 32 bytes from the system random source, not a
 phrase anyone invented. There is no guessing attack against 256 bits of
 entropy. Same reasoning Rails relies on, and the reason `init` **generates** a
 key rather than asking you to think one up.
+
+### Turning the randomness back into something you can hold
+
+Here is where this goes further than Rails.
+
+A project key is 32 random bytes. That strength is exactly what makes it
+awkward: you cannot memorise it, so it has to be *stored* — and Rails stores
+`master.key` as plaintext, which means backing it up puts a plaintext key
+wherever the backup goes. Dropbox, a laptop, an email to yourself.
+
+So seal it with the thing this whole app was built around — a phrase you could
+not forget:
+
+```bash
+secure-term backup
+```
+
+```
+Backup verified — it decrypts back to your key.
+
+Write this down, or keep it somewhere you will find it:
+
+    STv1.600 000.5pdE dmspiG-O JJhH8OLF dA.KBLaQ
+    bAEeync8 XmB.y44G LOon_uNC CkyCOz5A WeiVAwVe
+    nzVgVKm1 QFFo-tXl Mv4UYs4e IMwFAhyZ HTiy4fj7
+    tKIBxOTD EvA
+```
+
+That is safe to store anywhere your passphrase is not: **printed in a drawer,
+in cloud storage, emailed to yourself, photographed.** It is meaningless
+without the sentence in your head. Nothing memorable is ever written down —
+the memorable part *is* the key, and it stays where it always was.
+
+Lost the key file? Recover it from memory:
+
+```bash
+secure-term restore                    # paste it, or:
+secure-term restore key-backup.txt
+```
+
+Three details that matter:
+
+- **It verifies itself.** `backup` decrypts its own output and compares it to
+  the key before saying it worked. A backup nobody has opened is not a backup,
+  and this is the one file where finding out later means the key is gone.
+- **It is printed in groups because you may retype it.** Whitespace and line
+  breaks are ignored on restore, so it can be copied off paper as shown.
+- **A pepper works here too** (`secure-term backup -p`), so the backup needs
+  the phrase *and* a detail that exists only in your head.
+
+> **Do not commit the backup to the repository it unlocks.** That repository
+> already holds `.env.enc`. Putting the sealed key beside it means one guessed
+> passphrase opens both — precisely what generating a random key avoided.
+> `backup` gitignores its output automatically, but the real rule is to store
+> it somewhere the repository is not.
 
 ### One line, every framework
 

@@ -112,6 +112,48 @@ The consequences of that distinction:
   neighbouring temporary file and renaming it, so an interrupted save cannot
   truncate the payload.
 
+## Sealed key backups
+
+`secure-term backup` encrypts the project key with a passphrase the user
+chooses, producing an ordinary `STv1` payload. `secure-term restore` reverses
+it. This exists because a random key must be stored somewhere, and storing it
+in plaintext — as Rails does with `master.key` — makes every copy of the
+backup a copy of the key.
+
+**The security of a sealed backup is the security of the chosen passphrase.**
+Sealing does not inherit the 256-bit strength of the key it protects; it
+replaces it with whatever the phrase is worth. That is an acceptable and
+deliberate trade for an artefact stored outside the repository, and an
+unacceptable one for an artefact stored inside it.
+
+Which gives the single rule:
+
+- **Never commit a sealed backup to the repository it unlocks.** The
+  repository already holds the ciphertext the key opens. Storing both together
+  means one offline attack against the passphrase yields everything, which is
+  exactly what generating a random key prevented. `backup` adds its output to
+  `.gitignore` when written into a repository, and says so.
+
+Other properties:
+
+- **A key file can never seal itself.** `backup` and `restore` refuse to take
+  a passphrase from any key file, so a key cannot be encrypted with itself —
+  a failure that would look successful and be discovered only when the backup
+  was needed. An explicitly set `SECURE_TERM_PASSPHRASE` is still honoured,
+  since that is a deliberate act rather than a file found lying around.
+- **Backups are verified before being reported.** `backup` decrypts its own
+  output and compares it to the key, so success is never claimed for a backup
+  that would not open.
+- **Restore validates what it recovered.** Decrypting the wrong payload — a
+  `.env.enc`, say — is rejected with an explanation rather than writing a key
+  file full of environment variables.
+- **Restore refuses to overwrite an existing key** without `--force`.
+- **Each backup is distinct.** Fresh salt and IV per call, so storing the same
+  key in two places does not hand an attacker a matched pair.
+- **Whitespace is ignored when decrypting**, so a backup printed in groups can
+  be retyped by hand. This applies to all payloads and also rescues ones
+  line-wrapped by an email client.
+
 ## Backwards compatibility
 
 Payloads from the pre-2.0 release still decrypt, including those made with a
