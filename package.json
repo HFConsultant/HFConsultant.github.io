@@ -1,16 +1,47 @@
 {
-  "name": "secure-terminal",
-  "version": "2.0.0",
-  "description": "A browser-only encryption terminal. Client-side AES-256-GCM with PBKDF2 key derivation.",
+  "name": "secure-term",
+  "version": "2.1.0",
+  "description": "Encrypt a secret so you can send it through any channel. AES-256-GCM, no server, no dependencies. Works in the browser and the terminal.",
   "type": "module",
-  "private": true,
   "license": "MIT",
   "homepage": "https://hfconsultant.github.io/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/HFConsultant/HFConsultant.github.io.git"
+    "url": "git+https://github.com/HFConsultant/HFConsultant.github.io.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HFConsultant/HFConsultant.github.io/issues"
+  },
+  "keywords": [
+    "encryption",
+    "aes-gcm",
+    "pbkdf2",
+    "dotenv",
+    "secrets",
+    "cli",
+    "webcrypto",
+    "zero-dependency"
+  ],
+  "bin": {
+    "secure-term": "cli/secure-term.js"
+  },
+  "exports": {
+    ".": "./js/crypto.js",
+    "./envfile": "./js/envfile.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
     "test": "node --test"
-  }
+  },
+  "//": "The website is deliberately excluded from the published package: npm gets the shared core and the CLI, GitHub Pages serves the rest.",
+  "files": [
+    "cli/",
+    "js/crypto.js",
+    "js/envfile.js",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ]
 }
