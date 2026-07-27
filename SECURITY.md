@@ -73,6 +73,45 @@ surface, handled as follows:
 - **`.env` summaries print variable names, never values**, so the progress
   output is safe in CI logs and on shared screens.
 
+## Project keys
+
+`secure-term init` writes `.secure-term.key`: 32 bytes from
+`crypto.getRandomValues`, base64url-encoded, mode 0600, added to `.gitignore`
+automatically.
+
+Nothing about the payload format changes for a key file — it is simply a
+passphrase that lives in a file rather than in someone's head. What changes is
+the **threat model**, and only in one direction:
+
+- A **chosen passphrase** can be attacked offline. Ciphertext made with one
+  should not live anywhere permanent, which is why the default advice is to
+  send payloads through chat rather than commit them.
+- A **generated key** cannot be meaningfully guessed. Ciphertext made with one
+  is safe to commit, which is what makes the Rails `master.key` arrangement
+  work and what makes it work here.
+
+The consequences of that distinction:
+
+- **The key must never be committed.** `init` edits `.gitignore` rather than
+  leaving it to documentation, because committing the key next to the
+  ciphertext removes all protection at once.
+- **A key readable by other local users earns a warning**, like `ssh`. It is a
+  warning rather than a refusal because containers and CI runners routinely
+  mount files with unhelpful modes.
+- **`init` refuses to overwrite an existing key** without `--force`, since a
+  replaced key makes every file encrypted with the old one unreadable.
+- **`run` never writes plaintext to disk.** Values are decrypted in memory and
+  passed to the child process's environment. Environment variables are visible
+  to that process and its children, and on some systems to the same user via
+  `/proc`; this is the same exposure any `.env` loader has, and strictly less
+  than leaving a decrypted `.env` on disk.
+- **Real environment variables take precedence** over decrypted ones, so a
+  value injected by CI is never silently replaced by a stale committed one.
+- **`edit` writes plaintext to a 0600 temporary file** for as long as the
+  editor is open, removes it in a `finally` block, and saves by writing a
+  neighbouring temporary file and renaming it, so an interrupted save cannot
+  truncate the payload.
+
 ## Backwards compatibility
 
 Payloads from the pre-2.0 release still decrypt, including those made with a

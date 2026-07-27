@@ -16,13 +16,26 @@
  * while the user still sees prompts and progress on their terminal.
  */
 
-import { readFileSync, writeFileSync, existsSync, openSync, closeSync } from 'node:fs';
+import {
+	readFileSync, writeFileSync, existsSync, openSync, closeSync,
+	unlinkSync, renameSync, statSync, appendFileSync
+} from 'node:fs';
 import { ReadStream } from 'node:tty';
+import { spawn } from 'node:child_process';
+import { tmpdir, constants as osConstants } from 'node:os';
+import { join } from 'node:path';
 
 import { encryptText, decryptText, ITERATIONS, PayloadError, DecryptionError } from '../js/crypto.js';
 import { summarize, describe } from '../js/envfile.js';
+import { parseEnv } from '../js/envparse.js';
 
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
+
+/** The project key file, by convention — the analogue of Rails' master.key. */
+const KEY_FILE = '.secure-term.key';
+
+/** True while an editor or `run` child owns the terminal; see the SIGINT handler. */
+let childActive = false;
 
 /** Oldest Node this runs on. Kept in step with "engines" in package.json. */
 const MINIMUM_NODE = 20;
@@ -110,6 +123,17 @@ ${c.bold('GETTING STARTED')}
   ${c.dim('It will ask you for a passphrase. Nothing is sent anywhere —')}
   ${c.dim('all the work happens on this machine.')}
 
+${c.bold('FOR A PROJECT')}
+  ${c.dim('Set your project up once, then nobody thinks about it again:')}
+    secure-term init                     ${c.dim('# make a project key, gitignore it')}
+    secure-term encrypt .env -o .env.enc ${c.dim('# commit .env.enc, never .env')}
+    secure-term run -- npm run dev       ${c.dim('# run with the secrets loaded')}
+    secure-term edit .env.enc            ${c.dim('# change them in your editor')}
+
+  ${c.dim('`run` works with any framework, because it just sets environment')}
+  ${c.dim('variables: next dev, vite, django, go run — all the same.')}
+  ${c.dim('See: secure-term help project')}
+
 ${c.bold('IN A PIPELINE')}
   cat .env | secure-term encrypt | pbcopy
   pbpaste | secure-term decrypt > .env
@@ -117,6 +141,8 @@ ${c.bold('IN A PIPELINE')}
 
 ${c.bold('OPTIONS')}
   -o, --out ${c.dim('<file>')}       Write to a file instead of the screen
+  -k, --key-file ${c.dim('<file>')}  Read the passphrase from a file ${c.dim(`(default ${KEY_FILE})`)}
+  -P, --prompt           Ask for the passphrase, ignoring any key file
   -p, --pepper           Also ask for a second secret ${c.dim('(secure-term help pepper)')}
   -f, --force            Overwrite the output file if it already exists
       --iterations ${c.dim('<n>')}   Key-stretching rounds for new payloads ${c.dim(`(default ${ITERATIONS.toLocaleString()})`)}
@@ -126,6 +152,7 @@ ${c.bold('OPTIONS')}
   -V, --version          Show the version
 
 ${c.bold('LEARN MORE')}
+  secure-term help project    ${c.dim('project keys, and any framework in one line')}
   secure-term help pepper     ${c.dim('the optional second secret, and why')}
   secure-term help sharing    ${c.dim('how to get a payload to someone safely')}
   secure-term help scanners   ${c.dim('stopping security scanners flagging payloads')}
@@ -141,6 +168,75 @@ ${c.yellow(c.bold('IMPORTANT'))}
 }
 
 const TOPICS = {
+	project: `
+${c.bold('Project keys — one line for any framework')}
+
+  For a project, typing a passphrase every time is friction nobody accepts,
+  and it does not survive being handed to a teammate. Instead, generate a
+  key file once:
+
+    secure-term init
+
+  That writes ${KEY_FILE} — 32 random bytes, mode 0600 — and adds it
+  to .gitignore. From then on every command finds it automatically.
+
+  ${c.bold('The arrangement')}
+    ${KEY_FILE}   ${c.red('never committed')}, shared like any other secret
+    .env.enc            ${c.green('committed')}, useless without the key
+    .env                ${c.red('never committed')}, and no longer needed
+
+  ${c.bold('Why committing the encrypted file is safe here')}
+  A memorable passphrase can be guessed offline for as long as a repository
+  exists, so payloads made with one belong in chat, not in git. A generated
+  key is 256 bits of randomness and cannot be guessed at all. That is the
+  same reasoning behind Rails' config/master.key, and it is why 'init'
+  generates a key rather than asking you to invent one.
+
+  ${c.bold('Running anything with the secrets loaded')}
+    secure-term run -- npm run dev
+    secure-term run -- next dev
+    secure-term run -- vite build
+    secure-term run -- python manage.py runserver
+    secure-term run -- go run ./cmd/server
+
+  There is no framework integration and no plugin, because none is needed:
+  'run' decrypts, puts the variables in the environment, and starts your
+  command. Every framework already reads environment variables. The
+  decrypted values are never written to disk.
+
+  Put it in package.json once and the team never thinks about it:
+
+    "scripts": {
+      "dev": "secure-term run -- next dev"
+    }
+
+  ${c.bold('Changing a secret')}
+    secure-term edit .env.enc
+
+  That opens the decrypted contents in $EDITOR and re-encrypts on save. The
+  plaintext exists only in a temporary file while the editor is open, and is
+  removed afterwards even if the editor crashes.
+
+  ${c.bold('Production and CI')}
+  There is no key file on a server. Put the key in the environment instead,
+  the same way you would any other secret:
+
+    SECURE_TERM_PASSPHRASE=$(cat ${KEY_FILE})     ${c.dim('# locally')}
+    SECURE_TERM_PASSPHRASE=\${{ secrets.SECURE_TERM_KEY }}  ${c.dim('# CI')}
+
+  Then 'secure-term run -- npm start' works unchanged on the server.
+
+  ${c.bold('Onboarding someone')}
+  They clone the repository, you send them the key by a route that is not
+  the repository (see: secure-term help sharing), they save it as
+  ${KEY_FILE}, and everything works. No shared .env, and nothing
+  sensitive in the clone.
+
+  ${c.bold('If you lose the key')}
+  The encrypted file cannot be recovered. Back the key up in a password
+  manager the day you create it.
+`,
+
 	pepper: `
 ${c.bold('The pepper — an optional second secret')}
 
@@ -340,8 +436,21 @@ function parseArgs(argv) {
 		iterations: ITERATIONS,
 		help: false,
 		version: false,
-		topic: null
+		topic: null,
+		keyFile: null,
+		promptForce: false,
+		childArgv: null,
+		needsConfirm: false,
+		usedProjectKey: false
 	};
+
+	// Everything after a bare `--` belongs to the child command that
+	// `secure-term run` will start, untouched by our own option parsing.
+	const separator = argv.indexOf('--');
+	if (separator !== -1) {
+		options.childArgv = argv.slice(separator + 1);
+		argv = argv.slice(0, separator);
+	}
 
 	const rest = [...argv];
 
@@ -361,6 +470,16 @@ function parseArgs(argv) {
 				if (!options.out) throw new UsageError('--out needs a filename after it.');
 				break;
 			}
+
+			case '-k': case '--key-file': {
+				options.keyFile = rest.shift();
+				if (!options.keyFile) throw new UsageError('--key-file needs a filename after it.');
+				break;
+			}
+
+			case '-P': case '--prompt':
+				options.promptForce = true;
+				break;
 
 			case '--iterations': {
 				const raw = rest.shift();
@@ -411,13 +530,15 @@ function normaliseCommand(word) {
 	const aliases = {
 		e: 'encrypt', enc: 'encrypt', encrypt: 'encrypt',
 		d: 'decrypt', dec: 'decrypt', decrypt: 'decrypt',
-		h: 'help', help: 'help'
+		h: 'help', help: 'help',
+		init: 'init', edit: 'edit', run: 'run'
 	};
 	if (aliases[lower]) return aliases[lower];
 
 	const suggestions = {
 		lock: 'encrypt', scramble: 'encrypt', seal: 'encrypt', hide: 'encrypt',
-		unlock: 'decrypt', unscramble: 'decrypt', open: 'decrypt', read: 'decrypt'
+		unlock: 'decrypt', unscramble: 'decrypt', open: 'decrypt', read: 'decrypt',
+		exec: 'run', start: 'run', setup: 'init'
 	};
 	if (suggestions[lower]) {
 		throw new UsageError(
@@ -614,15 +735,68 @@ function promptSecret(stream, label) {
  * deliberately no --passphrase flag: anything on the command line is visible
  * in `ps` output and lands in shell history.
  */
-async function collectSecrets(options) {
-	const fromEnv = process.env.SECURE_TERM_PASSPHRASE;
-	const pepperFromEnv = process.env.SECURE_TERM_PEPPER;
+/**
+ * Read a key file: one line holding the passphrase, the way Rails stores
+ * config/master.key. Nothing about the payload format changes — a key file is
+ * simply a passphrase that lives in a file, which is why a payload locked
+ * with one can still be opened in the web app by pasting the file's contents.
+ */
+function readKeyFile(path) {
+	if (!existsSync(path)) {
+		throw new IoError(
+			`There is no key file at '${path}'.\n` +
+			`  Create one with: secure-term init`
+		);
+	}
 
-	if (fromEnv) {
-		if (!options.quiet) {
-			say(c.dim('Using the passphrase from SECURE_TERM_PASSPHRASE.'));
+	// Like ssh, warn about a key readable by other local users. A warning
+	// rather than a refusal: containers and CI mount files with odd modes.
+	if (statSync(path).mode & 0o077) {
+		say(c.yellow(`Warning: ${path} is readable by other users on this machine.`));
+		say(c.yellow(`  Fix it with: chmod 600 ${path}`));
+	}
+
+	const key = readFileSync(path, 'utf8').trim();
+	if (!key) throw new IoError(`The key file '${path}' is empty.`);
+	return key;
+}
+
+/**
+ * Collect the passphrase (and pepper, when asked for).
+ *
+ * Sources, most explicit first:
+ *
+ *   1. -P / --prompt           always ask, ignoring everything below
+ *   2. -k / --key-file <path>  read from the named file
+ *   3. SECURE_TERM_PASSPHRASE  the environment (CI, production)
+ *   4. ./.secure-term.key      the project key, when one exists here
+ *   5. ask at the terminal
+ *
+ * There is deliberately no --passphrase flag: anything on the command line is
+ * visible in `ps` output and lands in shell history.
+ */
+async function collectSecrets(options) {
+	const pepperFromEnv = process.env.SECURE_TERM_PEPPER;
+	let passphrase = null;
+
+	if (!options.promptForce) {
+		if (options.keyFile) {
+			passphrase = readKeyFile(options.keyFile);
+			if (!options.quiet) say(c.dim(`Using the key from ${options.keyFile}.`));
+		} else if (process.env.SECURE_TERM_PASSPHRASE) {
+			passphrase = process.env.SECURE_TERM_PASSPHRASE;
+			if (!options.quiet) say(c.dim('Using the passphrase from SECURE_TERM_PASSPHRASE.'));
+		} else if (existsSync(KEY_FILE)) {
+			passphrase = readKeyFile(KEY_FILE);
+			options.usedProjectKey = true;
+			if (!options.quiet) say(c.dim(`Using the project key from ${KEY_FILE}.`));
 		}
-		return { passphrase: fromEnv, pepper: pepperFromEnv || '' };
+	}
+
+	// A non-typed passphrase needs no confirmation, and the pepper may still
+	// come from the environment — in that case no terminal is needed at all.
+	if (passphrase !== null && (!options.pepper || pepperFromEnv)) {
+		return { passphrase, pepper: pepperFromEnv || '' };
 	}
 
 	const terminal = openTerminal();
@@ -631,30 +805,36 @@ async function collectSecrets(options) {
 			'No terminal is available to ask for a passphrase.\n' +
 			'  This usually means you are in CI, a cron job or a container.\n' +
 			'  Set SECURE_TERM_PASSPHRASE in the environment instead:\n' +
-			'    SECURE_TERM_PASSPHRASE=... secure-term decrypt .env.enc -o .env'
+			'    SECURE_TERM_PASSPHRASE=... secure-term decrypt .env.enc -o .env\n' +
+			'  or use a project key file: secure-term help project'
 		);
 	}
 
-	try {
-		const passphrase = await promptSecret(terminal.stream, 'Passphrase: ');
-		if (!passphrase) throw new UsageError('A passphrase is required.');
+	// Typing mistakes are unrecoverable when creating a payload, so those
+	// flows confirm. Decryption never needs it -- a wrong entry simply fails.
+	const confirming = options.confirm &&
+		(options.command === 'encrypt' || options.needsConfirm);
 
-		// Typos are unrecoverable when encrypting, so confirm. There is nothing
-		// to confirm against when decrypting -- a wrong one simply fails.
-		if (options.command === 'encrypt' && options.confirm) {
-			const again = await promptSecret(terminal.stream, 'Passphrase again: ');
-			if (again !== passphrase) {
-				throw new UsageError(
-					'Those two passphrases are not the same.\n' +
-					'  Nothing was encrypted. Try again.'
-				);
+	try {
+		if (passphrase === null) {
+			passphrase = await promptSecret(terminal.stream, 'Passphrase: ');
+			if (!passphrase) throw new UsageError('A passphrase is required.');
+
+			if (confirming) {
+				const again = await promptSecret(terminal.stream, 'Passphrase again: ');
+				if (again !== passphrase) {
+					throw new UsageError(
+						'Those two passphrases are not the same.\n' +
+						'  Nothing was encrypted. Try again.'
+					);
+				}
 			}
 		}
 
 		let pepper = pepperFromEnv || '';
 		if (options.pepper && !pepper) {
 			pepper = await promptSecret(terminal.stream, 'Pepper: ');
-			if (options.command === 'encrypt' && options.confirm && pepper) {
+			if (confirming && pepper) {
 				const again = await promptSecret(terminal.stream, 'Pepper again: ');
 				if (again !== pepper) {
 					throw new UsageError('Those two peppers are not the same. Nothing was encrypted.');
@@ -732,6 +912,259 @@ async function doDecrypt(options) {
 	}
 
 	return EXIT.OK;
+}
+
+// --------------------------------------------------------- project workflow
+
+/**
+ * Create a project key.
+ *
+ * The key is 32 random bytes, not a phrase someone chose. That distinction is
+ * what makes it safe to commit the *encrypted* file alongside it: a memorable
+ * passphrase can be attacked offline for as long as the repository exists,
+ * while 256 bits of entropy cannot. It is the same reasoning behind Rails'
+ * config/master.key.
+ */
+async function doInit(options) {
+	const target = options.keyFile || KEY_FILE;
+
+	if (existsSync(target) && !options.force) {
+		throw new IoError(
+			`'${target}' already exists.\n` +
+			`  Overwriting it would make every file encrypted with it unreadable.\n` +
+			`  If you are certain the old key is not in use: secure-term init --force`
+		);
+	}
+
+	const key = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
+	writeFileSync(target, `${key}\n`, { mode: 0o600 });
+
+	if (!options.quiet) {
+		say(c.green(`Created ${target}`));
+		say(c.dim('  32 random bytes. Readable only by you (mode 0600).'));
+	}
+
+	const ignored = ensureGitignored(target, options);
+
+	if (!options.quiet) {
+		if (ignored === 'added') {
+			say(c.green('Added it to .gitignore'));
+		} else if (ignored === 'already') {
+			say(c.dim('Already covered by .gitignore'));
+		} else if (ignored === 'no-repo') {
+			say(c.yellow('No .gitignore here — if this is a repository, add this line:'));
+			say(c.yellow(`    ${target}`));
+		}
+
+		say('');
+		say(c.bold('Next:'));
+		say(`  secure-term encrypt .env -o .env.enc   ${c.dim('# commit .env.enc, not .env')}`);
+		say(`  secure-term run -- npm run dev         ${c.dim('# run with the secrets loaded')}`);
+		say('');
+		say(c.yellow(`Back up ${target} somewhere safe — a password manager is ideal.`));
+		say(c.yellow('Lose it and the encrypted file cannot be recovered.'));
+		say(c.dim('Share it with teammates the way you would any other secret:'));
+		say(c.dim('  secure-term help sharing'));
+	}
+
+	return EXIT.OK;
+}
+
+/**
+ * Make sure the key file is ignored by git.
+ *
+ * The single most damaging mistake available here is committing the key next
+ * to the ciphertext it unlocks, so this is done automatically rather than
+ * left as advice in a README nobody rereads.
+ *
+ * @returns {'added'|'already'|'no-repo'}
+ */
+function ensureGitignored(target, options) {
+	const isRepo = existsSync('.git') || existsSync('.gitignore');
+	if (!isRepo) return 'no-repo';
+
+	const line = target.startsWith('/') ? target : `/${target}`;
+	const existing = existsSync('.gitignore') ? readFileSync('.gitignore', 'utf8') : '';
+
+	const alreadyListed = existing
+		.split(/\r?\n/)
+		.map((entry) => entry.trim())
+		.some((entry) => entry === target || entry === line || entry === `${target}*`);
+
+	if (alreadyListed) return 'already';
+
+	const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
+	appendFileSync(
+		'.gitignore',
+		`${prefix}\n# Secure Terminal project key — never commit this\n${line}\n`
+	);
+	return 'added';
+}
+
+/**
+ * Decrypt into a temporary file, open $EDITOR, re-encrypt on save.
+ *
+ * The plaintext exists on disk only while the editor is open, in a file
+ * created 0600, and is removed even if the editor exits badly. This is the
+ * `rails credentials:edit` shape: you never manage the decrypted file
+ * yourself, so there is no plaintext left lying around to forget about.
+ */
+async function doEdit(options) {
+	const target = options.file || '.env.enc';
+	const editor = process.env.SECURE_TERM_EDITOR || process.env.VISUAL || process.env.EDITOR;
+
+	if (!editor) {
+		throw new UsageError(
+			'No editor is configured, so there is nothing to open.\n' +
+			'  Set one for this shell:\n' +
+			'    export EDITOR=nano\n' +
+			'  or edit the file the long way:\n' +
+			`    secure-term decrypt ${target} -o .env`
+		);
+	}
+
+	const creating = !existsSync(target);
+
+	// A new file is being authored, so a typed passphrase must be confirmed
+	// exactly as it would be for `encrypt`.
+	options.needsConfirm = creating;
+	const { passphrase, pepper } = await collectSecrets(options);
+
+	let plaintext = '';
+	if (creating) {
+		if (!options.quiet) say(c.dim(`${target} does not exist yet — creating it.`));
+		plaintext = '# Secrets for this project. Encrypted on save.\n\n';
+	} else {
+		plaintext = await decryptText(readFileSync(target, 'utf8').trim(), passphrase, pepper);
+	}
+
+	// Keep the .env suffix so editors apply the right syntax highlighting.
+	const scratch = join(tmpdir(), `secure-term-${process.pid}-${Date.now()}.env`);
+	writeFileSync(scratch, plaintext, { mode: 0o600 });
+
+	try {
+		const status = await runChild(editor, [scratch], { shell: true });
+		if (status !== 0) {
+			throw new IoError(`The editor exited with status ${status}. ${target} is unchanged.`);
+		}
+
+		const edited = readFileSync(scratch, 'utf8');
+
+		if (edited === plaintext) {
+			if (!options.quiet) say(c.dim('No changes — nothing re-encrypted.'));
+			return EXIT.OK;
+		}
+		if (!edited.trim()) {
+			throw new UsageError(`The file was left empty, so ${target} is unchanged.`);
+		}
+
+		const payload = await encryptText(edited, passphrase, pepper, options.iterations);
+
+		// Write via a temporary file in the same directory and rename, so an
+		// interruption cannot leave a half-written payload where the real one
+		// was. rename is atomic within a filesystem.
+		const pending = `${target}.tmp-${process.pid}`;
+		writeFileSync(pending, `${payload}\n`, { mode: 0o600 });
+		renameSync(pending, target);
+
+		if (!options.quiet) {
+			say(c.green(`Saved ${target}`));
+			const summary = summarize(edited);
+			if (summary.kind === 'env') say(c.dim(`  ${describe(summary).join('\n  ')}`));
+		}
+
+		return EXIT.OK;
+	} finally {
+		try { unlinkSync(scratch); } catch { /* already gone */ }
+	}
+}
+
+/**
+ * Decrypt, then run a command with the secrets in its environment.
+ *
+ * This is the piece that makes the tool framework-agnostic. Every framework
+ * worth the name reads configuration from environment variables, so injecting
+ * them into a child process works for Next.js, Vite, Django, Go and anything
+ * else without a plugin for any of them. The decrypted values never touch the
+ * disk at all.
+ */
+async function doRun(options) {
+	if (!options.childArgv || options.childArgv.length === 0) {
+		throw new UsageError(
+			'`run` needs a command to run, after a double dash.\n' +
+			'    secure-term run -- npm run dev\n' +
+			'    secure-term run -- next dev\n' +
+			'  The dashes keep the command\'s own options away from this one.'
+		);
+	}
+
+	const target = options.file || '.env.enc';
+	if (!existsSync(target)) {
+		throw new IoError(
+			`There is no '${target}' here.\n` +
+			`  Create one with: secure-term encrypt .env -o ${target}\n` +
+			`  Or point at a different file: secure-term run ${'<file>'} -- ${options.childArgv.join(' ')}`
+		);
+	}
+
+	const { passphrase, pepper } = await collectSecrets(options);
+	const plaintext = await decryptText(readFileSync(target, 'utf8').trim(), passphrase, pepper);
+	const vars = parseEnv(plaintext);
+	const names = Object.keys(vars);
+
+	if (names.length === 0) {
+		say(c.yellow(`Warning: no variables found in ${target}. Running anyway.`));
+	} else if (!options.quiet) {
+		say(c.dim(`Loaded ${names.length} variable${names.length === 1 ? '' : 's'} from ${target}`));
+		say(c.dim(`  ${names.join(', ')}`));
+	}
+
+	const [command, ...args] = options.childArgv;
+
+	// The real environment wins over the file. That way a one-off override --
+	// `PORT=4000 secure-term run -- npm start` -- behaves the way anyone would
+	// expect, and CI-injected values are not silently replaced by stale ones.
+	const inherited = Object.keys(vars).filter((name) => name in process.env);
+	if (inherited.length && !options.quiet) {
+		say(c.dim(`  (already set in this shell, left alone: ${inherited.join(', ')})`));
+	}
+
+	const childEnv = { ...vars, ...process.env };
+
+	childActive = true;
+	const status = await runChild(command, args, { env: childEnv });
+	childActive = false;
+
+	// Pass the child's exit code straight through, so this composes with `npm
+	// test`, CI and anything else that inspects it.
+	return status;
+}
+
+/**
+ * Run a command with our stdio, resolving to its exit code.
+ *
+ * Signals are reported as the conventional 128 + signal number, which is what
+ * a shell would report for the same command.
+ */
+function runChild(command, args, { env = process.env, shell = false } = {}) {
+	return new Promise((resolve, reject) => {
+		const child = spawn(command, args, { stdio: 'inherit', env, shell });
+
+		child.on('error', (error) => {
+			reject(
+				error.code === 'ENOENT'
+					? new IoError(
+						`Could not run '${command}' — no such command.\n` +
+						`  Check it is installed and on your PATH.`
+					)
+					: error
+			);
+		});
+
+		child.on('close', (code, signal) => {
+			resolve(signal ? 128 + (osConstants.signals[signal] ?? 0) : (code ?? 0));
+		});
+	});
 }
 
 // ----------------------------------------------------------------------- main
@@ -814,16 +1247,28 @@ async function main(argv) {
 	const unsupported = checkRuntime();
 	if (unsupported) return report(unsupported, options);
 
+	const actions = {
+		encrypt: doEncrypt,
+		decrypt: doDecrypt,
+		init: doInit,
+		edit: doEdit,
+		run: doRun
+	};
+
 	try {
-		return options.command === 'encrypt'
-			? await doEncrypt(options)
-			: await doDecrypt(options);
+		return await actions[options.command](options);
 	} catch (error) {
 		return report(error, options);
 	}
 }
 
 process.on('SIGINT', () => {
+	// While a child owns the terminal, Ctrl-C went to it as well as to us.
+	// Claiming "nothing was written" would be a lie -- the editor or dev
+	// server may well have written something -- and printing over its output
+	// is noise. Let the child's own exit path report.
+	if (childActive) return;
+
 	say(c.dim('\nCancelled. Nothing was written.'));
 	process.exit(EXIT.INTERRUPTED);
 });

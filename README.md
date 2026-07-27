@@ -117,6 +117,92 @@ to stderr — so it composes properly in a pipeline.
 the command line shows up in `ps` and in shell history. For automation, set
 `SECURE_TERM_PASSPHRASE` in the environment.
 
+## Using it in a project — any framework
+
+Rails solves the committed-secrets problem with `config/master.key`: the
+encrypted file is committed, the key is not. That pattern is good, and there is
+nothing Rails-specific about it. Here it is, for anything:
+
+```bash
+secure-term init                      # generate a project key, gitignore it
+secure-term encrypt .env -o .env.enc  # commit .env.enc — never .env
+secure-term run -- npm run dev        # run with the secrets loaded
+secure-term edit .env.enc             # change them in $EDITOR
+```
+
+After `init`, every command finds the key automatically. Nobody types a
+passphrase again.
+
+| File                | In git?           | What it is                            |
+| ------------------- | ----------------- | ------------------------------------- |
+| `.secure-term.key`  | **never**         | 32 random bytes, mode 0600            |
+| `.env.enc`          | **yes**           | useless without the key               |
+| `.env`              | **never**         | no longer needed at all               |
+
+### Why committing the encrypted file is safe here
+
+Elsewhere this README says payloads belong in chat, not in git — and that is
+right *for a passphrase you chose*, because committed ciphertext can be
+attacked offline for as long as the repository exists.
+
+A key from `init` is different: 32 bytes from the system random source, not a
+phrase anyone invented. There is no guessing attack against 256 bits of
+entropy. Same reasoning Rails relies on, and the reason `init` **generates** a
+key rather than asking you to think one up.
+
+### One line, every framework
+
+There is no Next.js plugin, and there never will be, because none is needed.
+`run` decrypts, puts the variables in the environment, and starts your command
+— and every framework already reads environment variables:
+
+```bash
+secure-term run -- next dev
+secure-term run -- vite build
+secure-term run -- python manage.py runserver
+secure-term run -- go run ./cmd/server
+secure-term run -- rails server
+```
+
+Wire it into `package.json` once and the team stops thinking about it:
+
+```json
+{
+  "scripts": {
+    "dev": "secure-term run -- next dev",
+    "build": "secure-term run -- next build"
+  }
+}
+```
+
+The decrypted values are **never written to disk** — they go straight into the
+child process's environment. Anything already set in your shell wins, so
+`PORT=4000 npm run dev` still behaves the way you expect.
+
+### Production and CI
+
+Servers have no key file. Put the key in the environment, like any other
+secret, and the same command works unchanged:
+
+```yaml
+# GitHub Actions
+env:
+  SECURE_TERM_PASSPHRASE: ${{ secrets.SECURE_TERM_KEY }}
+run: secure-term run -- npm start
+```
+
+### Onboarding
+
+They clone, you send them the key by a route that is not the repository, they
+save it as `.secure-term.key`, and `npm run dev` works. No shared `.env`,
+nothing sensitive in the clone.
+
+And because a key file is just a passphrase that lives in a file, the format
+never changed: paste the key into the [web app](https://hfconsultant.github.io/)
+and it will open the same `.env.enc` on your phone.
+
+Full detail: `secure-term help project`.
+
 ### Using it as a library
 
 The core is exported too, so the format is not locked inside either front-end:
@@ -296,6 +382,7 @@ index.html            markup and Content Security Policy
 css/style.css         styles
 js/crypto.js          encryption core — no DOM, runs in browser and Node
 js/envfile.js         .env summarising — names only, never values
+js/envparse.js        .env parsing with values — CLI only, feeds `run`
 js/terminal.js        web UI and command flow — no cryptography
 js/register-sw.js     service worker registration
 cli/secure-term.js    command line front-end

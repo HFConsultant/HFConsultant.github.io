@@ -68,7 +68,27 @@ regex = '''STv1\.\d+\.'''
 repositories. If a payload in a repository is flagged, the fix is to remove it
 from the repository rather than to suppress the alert — see below.
 
-## Better still, do not commit payloads
+## The exception: a generated project key
+
+Everything below assumes a passphrase **a human chose**. If instead you use a
+generated project key (`secure-term init`), committing the encrypted file is
+the intended workflow, exactly as Rails commits `credentials.yml.enc`:
+
+```
+.secure-term.key   never committed — 32 random bytes
+.env.enc           committed — useless without the key
+```
+
+The offline-attack argument below does not apply, because there is nothing to
+guess: the key is 256 bits of randomness, not a phrase. What still applies is
+the allowlist above — a committed `.env.enc` is a high-entropy blob and will
+trip generic rules until `STv1\.\d+\.` is allowlisted once.
+
+`secure-term init` adds the key to `.gitignore` automatically, because
+committing the key beside the ciphertext it unlocks is the one mistake that
+undoes all of this.
+
+## Otherwise, do not commit payloads
 
 Allowlisting solves the alert. It does not solve the underlying issue.
 
