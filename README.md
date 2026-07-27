@@ -1,39 +1,118 @@
 # Secure Terminal
 
-A command-line-style web app that encrypts and decrypts text entirely in your
-browser. No server, no account, no storage, no analytics. Install it once and it
-works offline.
+**Turn something you must not lose into something you cannot read — using a
+phrase you will never forget.**
+
+A terminal-style web app and a matching CLI that encrypt text entirely on your
+own machine. No server, no account, no storage, no analytics. Install it once
+and it works offline.
 
 ## Live Demo
 
 [View my project here](https://hfconsultant.github.io/)
 
-## What it does
+## The idea
 
-Type `e`, give it some text and a passphrase, and it hands back a payload like:
+Some things have to be written down, and writing them down is the whole
+problem. A crypto wallet's twelve-word recovery phrase is the clearest example:
+it must be stored somewhere, and anywhere you store it as plain text is a
+place someone can find it.
+
+So don't store it as plain text. Encrypt it with **a sentence you could not
+forget if you tried**, plus a personal detail nobody else knows:
 
 ```
-STv1.600000.WGo4u3ngZmEMzAUbsrn_kg.YkgymMBTWb3dx7TE.odYexKpVxxgGpSIWhrnl5nsl...
+Wallet phrase:  wagon rhythm exotic stand lens fortune brief grain siren wheel
+Passphrase:     My dog Rex ate pizza in Paris last summer
+Pepper:         2019
 ```
 
-Type `d`, paste that back with the same passphrase, and you get your text
-returned. That is the whole application.
+What comes out is unintelligible, and now it is safe to put somewhere unsafe —
+a notes app, a printed page, cloud storage, a photo in your camera roll. To get
+the wallet back, paste it in and supply the same sentence and the same detail.
 
-The point is that the payload is safe to put somewhere unsafe — a note app, a
-chat message, a printed page, a photo in your camera roll — because it is
-useless without the passphrase, which is never written down anywhere.
+**Nothing memorable is ever stored. The memorable part is the key, not the
+output** — it stays in your head, and there is no copy of it anywhere.
+
+## What else it is good for
+
+The same shape solves a problem developers hit constantly: **a teammate needs
+your `.env` and there is no safe way to send it.** Pasting live credentials into
+Slack puts them in a searchable archive forever.
+
+```bash
+secure-term encrypt .env -o .env.enc
+```
+
+Send `.env.enc` through Slack. Tell them the passphrase on a call — not in the
+same channel. On their end:
+
+```bash
+secure-term decrypt .env.enc -o .env
+```
+
+Also useful for: sending a password to a colleague, keeping journal entries or
+notes private, storing recovery codes, and putting anything sensitive through a
+channel you do not fully trust.
+
+See [`docs/scanners.md`](docs/scanners.md) for keeping encrypted payloads from
+tripping gitleaks and similar tools.
+
+## What it looks like
+
+Type `e`, give it your text and a passphrase, and you get back a payload:
+
+```
+STv1.600000.WGo4u3ng….YkgymM….odYexKpVxxg…
+```
+
+Type `d`, paste it back with the same passphrase, and your text returns. That
+is the whole application.
 
 ### Commands
 
 | Command | Does                                                    |
 | ------- | ------------------------------------------------------- |
-| `e`     | Encrypt some text                                       |
+| `e`     | Encrypt some text — paste as many lines as you like     |
 | `d`     | Decrypt a payload                                       |
 | `c`     | Clear the screen                                        |
 | `h`     | Show help                                               |
 | `about` | How it works, and what it does not protect against      |
 | `Esc`   | Cancel the current step                                 |
 | `↑` `↓` | Previous commands                                       |
+
+You can also **drag a file straight onto the window**. A `.env` is read and
+encrypted; a `.enc` is recognised and decrypted. The file is read in the
+browser and goes nowhere.
+
+When the content looks like a `.env`, the app reports the variable **names** it
+found and never the values — so you can confirm you have the right file with
+someone watching your screen.
+
+## The command line
+
+Same encryption, same payload format, same core module — a payload made on your
+phone opens in your terminal and vice versa.
+
+```bash
+npx secure-term --help
+```
+
+```bash
+secure-term encrypt .env -o .env.enc     # scramble a file
+secure-term decrypt .env.enc -o .env     # turn it back
+cat .env | secure-term encrypt | pbcopy  # straight to the clipboard
+secure-term decrypt .env.enc | grep DATABASE_URL
+```
+
+The payload is the only thing written to stdout — every prompt and message goes
+to stderr — so it composes properly in a pipeline.
+
+`secure-term --help` leads with worked examples before the options table, and
+`secure-term help <topic>` covers `pepper`, `sharing`, `scanners`, `env` and
+`format` in depth. There is deliberately **no `--passphrase` flag**: anything on
+the command line shows up in `ps` and in shell history. For automation, set
+`SECURE_TERM_PASSPHRASE` in the environment.
 
 ### The pepper
 
@@ -120,8 +199,10 @@ promise. There are no third-party scripts, no fonts from a CDN, no analytics,
 and no cookies. Nothing is written to `localStorage`; reload the page and the
 session is gone.
 
-You can verify all of this: it is about 700 lines of unminified,
-dependency-free JavaScript, and the network tab stays empty after load.
+You can verify all of this rather than take it on trust: it is under 2,000
+lines of unminified, dependency-free JavaScript, and the network tab stays
+empty after load. The CLI has no dependencies either — the published package is
+18 kB.
 
 ## Install
 
@@ -143,35 +224,51 @@ python3 -m http.server 8000
 
 Then open `http://localhost:8000`.
 
+The CLI runs straight from the checkout:
+
+```bash
+node cli/secure-term.js --help
+```
+
 ### Tests
 
-The crypto core is covered by tests that run under Node's built-in test runner
-against Node's Web Crypto implementation — the same standard API the browser
-provides, so `js/crypto.js` is exercised unmodified:
+57 tests under Node's built-in runner, no dependencies:
 
 ```bash
 npm test
 ```
 
-They cover round-trips, unicode handling, salt and IV uniqueness, tamper
-rejection, malformed payloads, passphrase/pepper separation and backwards
-compatibility with the pre-2.0 payload format.
+The crypto tests run against Node's Web Crypto — the same standard API the
+browser provides — so `js/crypto.js` is exercised unmodified. They cover
+round-trips, unicode, salt and IV uniqueness, tamper rejection, malformed
+payloads, passphrase/pepper separation and pre-2.0 compatibility.
+
+The rest guard things that are invisible until they break in front of a user:
+that every module reached through an import is precached (the bug that broke
+offline support for a year), that the CSP has not regained `unsafe-inline`,
+that the summary never prints a secret value, and that no `--passphrase` flag
+has been added as a convenience.
 
 ### Layout
 
 ```
 index.html            markup and Content Security Policy
 css/style.css         styles
-js/crypto.js          encryption core — no DOM access
-js/terminal.js        UI and command flow — no cryptography
+js/crypto.js          encryption core — no DOM, runs in browser and Node
+js/envfile.js         .env summarising — names only, never values
+js/terminal.js        web UI and command flow — no cryptography
 js/register-sw.js     service worker registration
+cli/secure-term.js    command line front-end
 service-worker.js     offline caching
-tests/                crypto tests
+docs/scanners.md      keeping payloads out of secret-scanner alerts
+tests/                crypto, .env, CLI and asset tests
 ```
 
-The split between `crypto.js` and `terminal.js` is deliberate: the crypto
-module touches no DOM and the UI module performs no cryptography, so the part
-that matters can be read, reasoned about and tested on its own.
+One core, two front-ends. `js/crypto.js` touches no DOM and performs no I/O;
+`terminal.js` and `cli/secure-term.js` are both thin shells over it and neither
+does any cryptography of its own. That is what lets a payload made in a browser
+open in a terminal, and it means the part that matters can be read and tested
+on its own.
 
 ## Browser support
 
@@ -181,6 +278,8 @@ on `localhost`, but not from a `file://` URL.
 
 ## Documentation
 
+- [docs/scanners.md](docs/scanners.md) — secret scanners, false positives, and
+  why payloads do not belong in git
 - [PROMPTS.md](PROMPTS.md) — the prompt history behind this project
 - [SECURITY.md](SECURITY.md) — threat model and how to report an issue
 - [LICENSE](LICENSE) — MIT

@@ -1,1 +1,10 @@
 .DS_Store
+node_modules/
+
+# Secure Terminal payloads — send these through chat, do not commit them
+*.enc
+
+# never commit real environment files
+.env
+.env.*
+!.env.example
