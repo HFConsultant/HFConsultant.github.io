@@ -1,0 +1,16 @@
+{
+  "name": "secure-terminal",
+  "version": "2.0.0",
+  "description": "A browser-only encryption terminal. Client-side AES-256-GCM with PBKDF2 key derivation.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "homepage": "https://hfconsultant.github.io/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HFConsultant/HFConsultant.github.io.git"
+  },
+  "scripts": {
+    "test": "node --test 'tests/**/*.test.js'"
+  }
+}
