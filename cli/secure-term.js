@@ -60,9 +60,7 @@ function checkRuntime() {
 		`secure-term needs Node ${MINIMUM_NODE} or newer, and this is Node ${running}.\n` +
 		`  Node ${running.split('.')[0]} does not provide the Web Crypto API that all\n` +
 		`  the encryption here is built on.\n\n` +
-		`  Upgrade Node, or run it without installing anything:\n` +
-		`    npx --node-range='>=${MINIMUM_NODE}' secure-term --help\n\n` +
-		`  Or use the web version, which needs no Node at all:\n` +
+		`  Upgrade Node, or use the web version, which needs no Node at all:\n` +
 		`    https://hfconsultant.github.io/`
 	);
 }

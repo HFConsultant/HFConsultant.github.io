@@ -58,8 +58,11 @@ the text is gone, permanently and by design.
 | Manage secrets across a whole project | Consider [dotenvx](https://dotenvx.com) first — [see below](#how-this-compares) |
 | Understand the limits | `secure-term help limits` |
 
+The [web app](https://hfconsultant.github.io/) needs no install at all. For the
+command line — which is **not published to npm**, [and why](#the-command-line):
+
 ```bash
-npx secure-term --help     # nothing to install
+npx github:HFConsultant/HFConsultant.github.io --help
 ```
 
 ## How this compares
@@ -137,19 +140,48 @@ watching your screen.
 Same encryption, same format, same core module — a payload made on your phone
 opens in your terminal and vice versa.
 
-```bash
-npx secure-term --help          # no install
-npm install -g secure-term      # or keep it around
-```
+> **Not on npm, deliberately.** `npm install secure-term` will 404. The
+> `.env`-management commands overlap heavily with
+> [dotenvx](https://dotenvx.com), and claiming a generic npm name for a
+> personal project to compete with it was not worth doing. It installs
+> perfectly well straight from this repository — all three commands below are
+> verified working.
+
+**Run it once, installing nothing:**
 
 ```bash
-secure-term encrypt .env -o .env.enc     # scramble a file
-secure-term decrypt .env.enc -o .env     # turn it back
-cat .env | secure-term encrypt | pbcopy  # straight to the clipboard
-secure-term decrypt .env.enc | grep DATABASE_URL
+npx github:HFConsultant/HFConsultant.github.io --help
 ```
 
-Needs Node 20 or newer. Zero dependencies; the published package is 40 kB.
+**Or keep it around:**
+
+```bash
+npm install -g github:HFConsultant/HFConsultant.github.io
+secure-term --help
+```
+
+**Or clone and run it from the checkout:**
+
+```bash
+git clone https://github.com/HFConsultant/HFConsultant.github.io.git
+node HFConsultant.github.io/cli/secure-term.js --help
+```
+
+Once installed, the command is `secure-term`:
+
+```bash
+secure-term backup -k ~/.age/key.txt      # seal a key file you already have
+secure-term restore -o ~/.age/key.txt     # and get it back
+secure-term encrypt .env -o .env.enc      # scramble a file
+secure-term decrypt .env.enc -o .env      # turn it back
+cat .env | secure-term encrypt | pbcopy   # straight to the clipboard
+```
+
+Needs Node 20 or newer. Zero dependencies; the whole thing is 40 kB.
+
+**If you would rather not install anything at all**, the
+[web app](https://hfconsultant.github.io/) does the same encryption on the same
+format — and a payload sealed there opens in the CLI, and vice versa.
 
 The payload is the only thing on stdout — prompts and messages go to stderr — so
 it composes in a pipeline. There is deliberately **no `--passphrase` flag**:
@@ -458,6 +490,12 @@ in a terminal, and it means the part that matters can be read and tested alone.
 
 ### Using it as a library
 
+The core is exported, so the format is not locked inside either front-end:
+
+```bash
+npm install github:HFConsultant/HFConsultant.github.io
+```
+
 ```js
 import { encryptText, decryptText } from 'secure-term';
 import { summarize } from 'secure-term/envfile';
@@ -466,20 +504,25 @@ const payload = await encryptText('hello', 'passphrase');
 const back = await decryptText(payload, 'passphrase');
 ```
 
-### Releasing
+`js/crypto.js` uses only standard Web Crypto with no Node-specific imports, so
+the same file runs unmodified in a browser.
 
-npm gets the CLI and the shared core; GitHub Pages serves the site from the same
-commit. `tests/package.test.js` follows the CLI's imports and fails if any fall
-outside the `files` whitelist, so the package cannot ship missing a module.
+### On not publishing
 
-1. Bump `version` in `package.json` — a test asserts the CLI reports the same one
-2. Push, and let CI pass
-3. Create a GitHub Release, which triggers `.github/workflows/publish.yml`: it
-   re-runs the tests, refuses a version already on npm, and publishes with
-   provenance
+The packaging is complete and tested — `npm pack` produces a valid 40 kB
+tarball, and `tests/package.test.js` follows the CLI's imports and fails if any
+fall outside the `files` whitelist, so it cannot ship missing a module. It is
+simply not pushed to the registry, because the `.env` commands duplicate
+[dotenvx](https://dotenvx.com) and a generic npm name was not worth claiming for
+that.
 
-Publishing needs an `NPM_TOKEN` repository secret. Without it the workflow is
-inert, which is the safe default — nothing publishes on an ordinary push.
+`.github/workflows/publish.yml` remains, inert. It runs only on a published
+GitHub Release or a manual dispatch, never on a push, and needs an `NPM_TOKEN`
+secret that is not set. Should this ever be published — most likely under a
+scoped name like `@hfconsultant/secure-term` — the steps are: bump `version` in
+`package.json` (a test asserts the CLI reports the same one), push, let CI pass,
+then create a Release. The workflow re-runs the tests, refuses a version already
+on npm, and publishes with provenance.
 
 ## Documentation
 
