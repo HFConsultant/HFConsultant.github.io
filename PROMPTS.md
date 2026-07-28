@@ -219,3 +219,51 @@ verified from the parts it had inferred.
 The workflow that produced the good outcome was: read the review, read the
 code, run the code, and let the third one settle disagreements between the
 first two.
+
+---
+
+## The full transcript
+
+This document summarises the prompts. The actual conversation — 23 exchanges,
+end to end, including the wrong turns — is available, **encrypted with this
+project's own tool**.
+
+**[Encrypted transcript](https://gist.github.com/HFConsultant/714c3b3cbb00f13ddad18c86f31cc487)**
+· 69 KB payload · ask for the key
+
+To read it, with the key:
+
+```bash
+curl -sL https://gist.githubusercontent.com/HFConsultant/714c3b3cbb00f13ddad18c86f31cc487/raw/secure-terminal-transcript.enc \
+  | npx github:HFConsultant/HFConsultant.github.io decrypt > transcript.txt
+```
+
+Or paste it into the [web app](https://hfconsultant.github.io/), press `d`, and
+supply the key — no install, and the same payload opens either way.
+
+### Why it is arranged this way
+
+Three decisions here follow the project's own documented rules, and it seemed
+worth demonstrating them rather than only writing them down.
+
+**It is encrypted with a generated key, not a memorable phrase.** Any phrase
+chosen during the conversation would have been written *into* the conversation
+being encrypted. A 32-byte key generated at seal time and never typed avoids
+that circularity — and it is the same key shape, and the same reasoning, as
+`secure-term init`.
+
+**It is not committed to this repository.** `docs/scanners.md` says a payload
+in a public repository is one an attacker can work on offline, indefinitely,
+with no rate limit and no expiry. That applies to this payload too. A secret
+gist can be deleted; a commit cannot be unpublished, and following our own
+advice seemed better than making an exception for ourselves.
+
+**It was verified before being published.** The sealing step decrypted its own
+output and compared it to the original before writing anything, exactly as
+`secure-term backup` does — then the published gist was fetched back over the
+network and decrypted again, to confirm the instructions above actually work
+rather than merely look right.
+
+The transcript is the readable conversation: both sides' prose, with tool calls,
+file contents and command output stripped. The full machine transcript is 8.5 MB
+and roughly 95% command output, which is a poor way to read an argument.
