@@ -206,6 +206,64 @@ test('restoring something that is not a key is rejected, not installed', async (
 	});
 });
 
+test('seals and recovers any key file, not just its own', async () => {
+	// The point of the tool, generalised: every security tool hands you a
+	// recovery artefact in plaintext. A realistic age identity has comment
+	// lines above the key, so it is not "key-shaped" — and refusing it would
+	// make `backup -k <anything>` a one-way trip.
+	await withProject(async (dir) => {
+		const identity = [
+			'# created: 2026-07-27T12:00:00Z',
+			'# public key: age1qqqqexamplepublickeyvalue',
+			'AGE-SECRET-KEY-1EXAMPLENOTREALKEY0000000000'
+		].join('\n');
+
+		const source = join(dir, 'id.age');
+		writeFileSync(source, `${identity}\n`);
+
+		const sealed = await cli(['backup', '-k', 'id.age', '--no-confirm', '-q'], {
+			cwd: dir,
+			env: { SECURE_TERM_PASSPHRASE: PHRASE }
+		});
+		assert.equal(sealed.code, 0);
+		assert.ok(!sealed.stdout.includes('AGE-SECRET-KEY'), 'the artefact must not appear in its seal');
+
+		rmSync(source);
+
+		const restored = await cli(['restore', '-o', 'id.age', '-q'], {
+			cwd: dir,
+			input: sealed.stdout,
+			env: { SECURE_TERM_PASSPHRASE: PHRASE }
+		});
+		assert.equal(restored.code, 0);
+		assert.equal(readFileSync(source, 'utf8').trim(), identity);
+	});
+});
+
+test('the key-shape check still guards the default target', async () => {
+	// Naming an output is a statement of intent; not naming one is not. The
+	// default path must still refuse to install something that is not a key.
+	await withProject(async (dir) => {
+		writeFileSync(join(dir, 'notes.txt'), 'just some prose\nover two lines\n');
+		await cli(['init', '-q'], { cwd: dir });
+
+		const sealed = await cli(['backup', '-k', 'notes.txt', '--no-confirm', '-q'], {
+			cwd: dir,
+			env: { SECURE_TERM_PASSPHRASE: PHRASE }
+		});
+		rmSync(join(dir, '.secure-term.key'));
+
+		const refused = await cli(['restore'], {
+			cwd: dir,
+			input: sealed.stdout,
+			env: { SECURE_TERM_PASSPHRASE: PHRASE }
+		});
+		assert.equal(refused.code, 1);
+		assert.match(refused.stderr, /does not contain a project key/i);
+		assert.match(refused.stderr, /-o <file>/, 'and it should point at the way through');
+	});
+});
+
 test('restore refuses to overwrite the key in use without --force', async () => {
 	await withProject(async (dir) => {
 		const original = await setUp(dir);

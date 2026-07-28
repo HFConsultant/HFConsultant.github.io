@@ -31,7 +31,7 @@ import {
 import { summarize, describe, decodeUtf8Strict, tooLongFor } from '../js/envfile.js';
 import { parseEnv } from '../js/envparse.js';
 
-const VERSION = '2.6.0';
+const VERSION = '2.7.0';
 
 /** The project key file, by convention — the analogue of Rails' master.key. */
 const KEY_FILE = '.secure-term.key';
@@ -235,12 +235,14 @@ ${c.bold('Turning the randomness back into something you can hold')}
   also what makes it a liability: you cannot memorise it, so it has to be
   stored, and wherever you store it is a place someone could find it.
 
-  Rails leaves this unsolved — config/master.key is plaintext, so copying it
-  into cloud storage puts a plaintext key into cloud storage.
+  Every tool leaves this unsolved. Rails writes config/master.key in plain
+  text. 1Password tells you to print the Emergency Kit. A wallet tells you to
+  write the seed on paper. Every copy of that backup is a copy of the secret.
 
   This is the tool's original trick applied to itself:
 
-    secure-term backup
+    secure-term backup              # seals ./.secure-term.key
+    secure-term backup -k id.age    # or any key file you hold
 
   It asks for a passphrase you could not forget — a whole sentence works
   best — and seals the key with it. What comes out is meaningless to anyone
@@ -1346,10 +1348,21 @@ async function doRestore(options) {
 
 	const key = (await decryptText(blob, passphrase, pepper)).trim();
 
-	if (!looksLikeKey(key)) {
+	// The shape check guards the default path only. Restoring a .env.enc by
+	// mistake would otherwise install a file of environment variables as the
+	// project key, which fails later and confusingly.
+	//
+	// When an output is named explicitly, the user has said what they are
+	// recovering and where it goes — and a sealed artefact is legitimately any
+	// shape: an age identity with comment lines above the key, a printed
+	// recovery code, a wallet seed phrase. Refusing those would make `backup
+	// -k <anything>` a one-way trip.
+	if (!options.out && !looksLikeKey(key)) {
 		throw new UsageError(
 			'That decrypted correctly, but it does not contain a project key.\n' +
 			'  It looks like a backup of something else — a .env.enc, perhaps.\n' +
+			'  If you meant to recover it somewhere specific, name the file:\n' +
+			'    secure-term restore <backup> -o <file>\n' +
 			'  To recover ordinary encrypted text, use: secure-term decrypt'
 		);
 	}

@@ -1,7 +1,7 @@
 {
   "name": "secure-term",
-  "version": "2.6.0",
-  "description": "Encrypt a secret so you can send it through any channel. AES-256-GCM, no server, no dependencies. Works in the browser and the terminal.",
+  "version": "2.7.0",
+  "description": "Seal a recovery key with a passphrase you cannot forget. AES-256-GCM, no server, no dependencies. Works in the browser and the terminal.",
   "type": "module",
   "license": "MIT",
   "homepage": "https://hfconsultant.github.io/",

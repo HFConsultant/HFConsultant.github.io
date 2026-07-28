@@ -11,47 +11,98 @@ it works offline.
 
 [View my project here](https://hfconsultant.github.io/)
 
+## The problem it actually solves
+
+Every security tool you use eventually hands you a **recovery artifact**: a
+high-entropy string you did not choose, cannot memorise, must never lose, and
+must not store in plain text.
+
+| Tool | What it hands you | What it tells you to do |
+| ---- | ----------------- | ----------------------- |
+| A crypto wallet | A 12-word seed phrase | "Write it down and keep it safe" |
+| 1Password | Secret Key / Emergency Kit | "Print it and put it in a safe" |
+| Bitwarden | A recovery code | "Store it somewhere safe" |
+| Rails | `config/master.key` | Gitignored, and otherwise your problem |
+| age, SOPS, dotenvx | An identity or key file | Gitignored, and otherwise your problem |
+
+Every one of them stops at the same sentence, and every one of them leaves you
+holding plaintext. **That last mile is what this tool is for.**
+
+Seal the artifact with a sentence you could not forget, plus a detail only you
+know:
+
+```
+Recovery artifact:  wagon rhythm exotic stand lens fortune brief grain siren
+Passphrase:         My dog Rex ate pizza in Paris last summer
+Pepper:             2019
+```
+
+What comes out is meaningless, so it is safe to keep somewhere unsafe — a notes
+app, a printed page, cloud storage, a photo in your camera roll. **Nothing
+memorable is ever written down.** The memorable part is the *key*, and it stays
+in your head.
+
+The **pepper** is that optional second secret. It helps when the passphrase is
+something you could be persuaded or compelled to reveal, since a pepper can be a
+detail that was never typed anywhere. It is not a backup — lose either half and
+the text is gone, permanently and by design.
+
 ## What do you want to do?
 
 | I want to… | Do this |
 | ---------- | ------- |
-| Store a wallet seed phrase safely | Open the [web app](https://hfconsultant.github.io/), press `e` |
-| Send a teammate my `.env` | `secure-term encrypt .env -o .env.enc` |
-| Share secrets across a whole project | `secure-term init`, then `secure-term run -- npm run dev` |
-| Never lose my project key | `secure-term backup` |
-| Get a lost key back | `secure-term restore` |
+| Store a wallet seed phrase | Open the [web app](https://hfconsultant.github.io/), press `e` |
+| Seal a key file so it is safe to back up | `secure-term backup -k <file>` |
+| Get a sealed key back | `secure-term restore` |
+| Send a teammate one secret, right now | `secure-term encrypt .env -o .env.enc` |
+| Manage secrets across a whole project | Consider [dotenvx](https://dotenvx.com) first — [see below](#how-this-compares) |
 | Understand the limits | `secure-term help limits` |
 
 ```bash
 npx secure-term --help     # nothing to install
 ```
 
-## The idea
+## How this compares
 
-Some things have to be written down, and writing them down is the whole problem.
-A wallet's twelve-word recovery phrase is the clearest case: it must be stored
-somewhere, and anywhere you store it as plain text is somewhere it can be found.
+Being specific about this, because most of these are more mature and you should
+use them where they fit.
 
-So don't store it as plain text. Encrypt it with **a sentence you could not
-forget if you tried**, plus a personal detail nobody else knows:
+| Tool | Better than this at | This is better at |
+| ---- | ------------------- | ----------------- |
+| [dotenvx](https://dotenvx.com) | Project secrets, by a distance. Public-key model, so CI can *add* a secret without reading the others. From the author of `dotenv`. | Sealing the key it gives you |
+| [age](https://age-encryption.org) | Files, streaming, large data, an audited design | Text you paste into a chat window |
+| [SOPS](https://github.com/getsops/sops) | Committed secrets at scale, KMS integration, per-value diffs | Nothing — different job |
+| Password managers | Everything about managing passwords | Sealing their recovery code |
 
-```
-Wallet phrase:  wagon rhythm exotic stand lens fortune brief grain siren wheel
-Passphrase:     My dog Rex ate pizza in Paris last summer
-Pepper:         2019
-```
+**If you want encrypted `.env` files for a team, use dotenvx.** It does what
+this tool's `init`/`run`/`edit` commands do, with a better key model and nine
+million weekly downloads behind it. Those commands exist here because they fall
+out of the same core for free, not because they beat it.
 
-What comes out is meaningless, and now it is safe to keep somewhere unsafe — a
-notes app, a printed page, cloud storage, a photo in your camera roll. To get the
-wallet back, paste it in and supply the same sentence and the same detail.
+### What is actually different here
 
-**Nothing memorable is ever stored.** The memorable part is the *key*, not the
-output; it stays in your head, and no copy of it exists anywhere.
+Passphrase encryption is not new — `age -p` and `gpg -c` have done it for years,
+and you could seal a key file with either. What none of them do is make it **a
+step in the key's life**, with the safeguards that step needs:
 
-The **pepper** is that optional second secret. It helps when the passphrase is
-something you could be persuaded or compelled to reveal, since a pepper can be a
-detail that was never typed anywhere. It is not a backup — lose either half and
-the text is gone, permanently and by design.
+- **`init` tells you to do it**, on the day the key is created rather than the
+  day you lose it.
+- **The backup verifies itself.** It decrypts its own output and compares it to
+  the key before reporting success. A backup nobody has opened is not a backup,
+  and this is the one artefact where finding out later means the key is gone.
+- **A key can never seal itself.** `backup` and `restore` refuse to take a
+  passphrase from any key file — a key encrypted with itself would look like a
+  success and only fail when it mattered.
+- **`restore` checks what came back is a key**, rather than writing whatever
+  decrypted into place.
+- **It prints in transcribable groups**, and ignores whitespace on the way back
+  in, because a printed backup gets retyped by hand.
+- **The same payload opens in a browser.** Paste the sealed text into the web
+  app on a phone and it opens there — no install, on a machine that is not
+  yours. Nothing else here pairs a CLI and a browser on one format.
+
+That is a workflow claim, not a cryptography claim. The primitives are standard
+and deliberately boring.
 
 ## The web app
 
@@ -110,6 +161,11 @@ set `SECURE_TERM_PASSPHRASE`.
 `sharing`, `scanners`, `env`, `format` and `limits`.
 
 ## In a project — any framework
+
+> For a team managing project secrets, **[dotenvx](https://dotenvx.com) is the
+> better choice** and this section is not trying to displace it. What follows
+> exists because it costs nothing on top of the core, and because it is what
+> produces the key that [sealing](#never-losing-the-key) then protects.
 
 Rails solves committed secrets with `config/master.key`: the encrypted file is
 committed, the key is not. Nothing about that is Rails-specific.
@@ -177,15 +233,20 @@ Full detail in `secure-term help project`.
 
 ## Never losing the key
 
-This is where it goes further than Rails.
+**This is the part worth having.** Everything above is a convenience; this is
+the bit no other tool in the list does for you.
 
-A project key is 32 random bytes. That strength is exactly what makes it
-awkward — you cannot memorise it, so it must be *stored*, and Rails stores
-`master.key` as plaintext, which means every copy of the backup is a copy of the
-key. So seal it with the thing this whole app was built around:
+A key is high-entropy by design, and that strength is exactly what makes it
+awkward: you cannot memorise it, so it must be *stored* — and every tool that
+issues one leaves it in plain text. Rails writes `master.key` to disk.
+1Password tells you to print the Emergency Kit. A wallet tells you to write the
+seed on paper. Every copy of that backup is a copy of the secret.
+
+So seal it with something you could not forget:
 
 ```bash
-secure-term backup
+secure-term backup              # seals ./.secure-term.key
+secure-term backup -k id.age    # or any other key file you hold
 ```
 
 ```
