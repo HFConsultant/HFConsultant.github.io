@@ -141,6 +141,51 @@ test('the viewport does not block zooming', () => {
 	assert.doesNotMatch(viewport[1], /maximum-scale/);
 });
 
+test('the reveal toggle exists and is announced as a toggle', () => {
+	// Typing a passphrase blind is how you misspell it twice without ever
+	// learning which attempt was wrong. It is a toggle, so it needs
+	// aria-pressed rather than just a label.
+	const html = read('index.html');
+	const button = /<button[^>]*class="reveal-btn"[^>]*>/.exec(html);
+
+	assert.ok(button, 'index.html has no reveal toggle');
+	assert.match(button[0], /aria-pressed="false"/, 'must start in the pressed=false state');
+	assert.match(button[0], /aria-label=/, 'and carry a label, since it is icon-only');
+	assert.match(button[0], /\bhidden\b/, 'and start hidden — it only applies to masked fields');
+	assert.match(button[0], /type="button"/, 'or it will submit the form');
+});
+
+test('every class the app applies is actually styled', () => {
+	// Renaming a class in one file and not the others is silent: the element
+	// renders, unstyled, and only looks wrong. This caught nothing the day it
+	// was written, which is the point — it exists for the next rename.
+	const css = read('css/style.css');
+	const js = read('js/terminal.js');
+	const html = read('index.html');
+
+	const used = new Set();
+	// Only plain class names: a template literal like `line--${kind}` shreds
+	// into fragments on a whitespace split, and those are not class names.
+	const add = (value) => value
+		.split(/\s+/)
+		.filter((name) => /^[a-zA-Z][\w-]*$/.test(name))
+		.forEach((name) => used.add(name));
+
+	for (const [, value] of html.matchAll(/\sclass="([^"]+)"/g)) add(value);
+	for (const [, value] of js.matchAll(/className = ['"`]([^'"`]+)['"`]/g)) add(value);
+	for (const [, name] of js.matchAll(/classList\.(?:add|remove|toggle)\('([^']+)'\)/g)) add(name);
+
+	// Line kinds are built as `line--${kind}` from a variable, so they are
+	// listed here rather than extracted. 'output' is the default kind and
+	// deliberately has no rule of its own — it inherits .line.
+	for (const kind of ['command', 'prompt', 'ok', 'muted', 'warn', 'error', 'result']) {
+		used.add(`line--${kind}`);
+	}
+
+	const unstyled = [...used].filter((name) => !css.includes(`.${name}`));
+	assert.deepEqual(unstyled, [], `classes used but never styled: ${unstyled.join(', ')}`);
+});
+
 test('the README links to the live deployment', () => {
 	assert.match(read('README.md'), /https:\/\/hfconsultant\.github\.io/);
 });

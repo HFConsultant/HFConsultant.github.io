@@ -123,21 +123,25 @@ body {
 	color: var(--error);
 }
 
+/* Text first, then a row of controls beneath it — see writeResult(). */
 .line--result {
 	display: flex;
+	flex-direction: column;
 	align-items: flex-start;
 	gap: 0.5rem;
-	margin: 0.5rem 0;
+	margin: 0.5rem 0 0.75rem;
 }
 
 .result-actions {
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 0.5rem;
 	flex-shrink: 0;
 }
 
 .result-text {
-	flex: 1;
+	align-self: stretch;
 	padding: 0.6rem 0.75rem;
 	background: var(--surface);
 	border-left: 2px solid var(--primary);
@@ -268,7 +272,8 @@ body {
 
 /* -------------------------------------------------------------- buttons */
 
-.copy-btn,
+.action-btn,
+.reveal-btn,
 .submit-btn {
 	background: none;
 	border: 1px solid transparent;
@@ -280,6 +285,7 @@ body {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	gap: 0.4rem;
 	flex-shrink: 0;
 	/* 44px keeps the tap target above the WCAG 2.5.5 minimum. */
 	min-width: 44px;
@@ -287,26 +293,52 @@ body {
 	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.copy-btn svg {
+/* Labelled buttons: the icon alone left people guessing. */
+.action-btn {
+	border-color: rgba(0, 255, 157, 0.35);
+	padding: 0 0.85rem;
+	font-size: 0.85rem;
+}
+
+.action-btn svg,
+.reveal-btn svg {
 	width: 18px;
 	height: 18px;
 	fill: currentColor;
+	flex-shrink: 0;
 }
 
-.copy-btn:hover,
+.action-btn:hover,
+.reveal-btn:hover,
 .submit-btn:hover {
 	background: var(--surface);
 }
 
-.copy-btn:focus-visible,
+.action-btn:focus-visible,
+.reveal-btn:focus-visible,
 .submit-btn:focus-visible {
 	outline: 2px solid var(--primary);
 	outline-offset: 2px;
 }
 
-.copy-btn--done {
+.action-btn--done {
 	color: var(--primary);
 	background: rgba(0, 255, 157, 0.12);
+	border-color: var(--primary);
+}
+
+/* Dimmed while hiding, lit while revealing, so the state reads at a glance. */
+.reveal-btn {
+	color: var(--muted);
+}
+
+.reveal-btn[aria-pressed='true'] {
+	color: var(--primary);
+	background: rgba(0, 255, 157, 0.12);
+}
+
+.reveal-btn[hidden] {
+	display: none;
 }
 
 /* ------------------------------------------------------------ scrollbar */

@@ -30,6 +30,8 @@ const CLIPBOARD_CLEAR_MS = 45000;
 const ICON_COPY = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>`;
 const ICON_CHECK = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
 const ICON_DOWNLOAD = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
+const ICON_EYE = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>`;
+const ICON_EYE_OFF = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 7a5 5 0 0 1 5 5c0 .6-.1 1.2-.3 1.7l2.9 2.9c1.5-1.3 2.7-2.9 3.4-4.6-1.7-4.4-6-7.5-11-7.5-1.4 0-2.7.2-4 .7l2.2 2.1c.5-.2 1.1-.3 1.8-.3zM2.7 3.4 1.4 4.7l2.5 2.5C2.4 8.4 1.2 10.1.5 12c1.7 4.4 6 7.5 11 7.5 1.5 0 3-.3 4.4-.8l.4.4 3.2 3.2 1.3-1.3L2.7 3.4zM7.5 10.8l1.7 1.7v.3a2.8 2.8 0 0 0 2.8 2.8h.3l1.7 1.7c-.6.2-1.3.4-2 .4a5 5 0 0 1-5-5c0-.7.1-1.4.5-1.9z"/></svg>`;
 
 /** Refuse to read a dropped file larger than this. */
 const MAX_FILE_BYTES = 1024 * 1024;
@@ -91,6 +93,7 @@ const HELP = [
 	['h', 'show this help'],
 	['about', 'how this works, and what it does not protect against'],
 	['drop', 'drag a file in — or a .enc to open it'],
+	['👁', 'the eye beside the prompt shows what you are typing'],
 	['Esc', 'cancel the current step'],
 	['↑ ↓', 'previous commands']
 ];
@@ -126,11 +129,26 @@ const terminal = {
 		label: null,
 		form: null,
 		hint: null,
-		veil: null
+		veil: null,
+		reveal: null
 	},
 
 	/** Filename of a dropped file, used to name the download on the way out. */
 	sourceName: null,
+
+	/**
+	 * Whether the user has asked to see what they are typing.
+	 *
+	 * Persists across the steps of one flow — someone who turned it on to get a
+	 * passphrase right wants it for the pepper too — and is cleared whenever a
+	 * flow starts or is cancelled, so it never carries into a later session.
+	 *
+	 * This does not weaken the secrecy rule. That rule is about the scrollback:
+	 * secret steps are still echoed as a fixed-width mask and never written
+	 * into the page. An input's `value` is a property, not an attribute, so it
+	 * is absent from the serialised DOM whether the type is password or text.
+	 */
+	revealed: false,
 
 	// ---------------------------------------------------------------- output
 
@@ -201,18 +219,18 @@ const terminal = {
 		actions.className = 'result-actions';
 
 		const copy = document.createElement('button');
-		copy.className = 'copy-btn';
+		copy.className = 'action-btn';
 		copy.type = 'button';
-		copy.innerHTML = ICON_COPY;
+		copy.innerHTML = `${ICON_COPY}<span>Copy</span>`;
 		copy.setAttribute('aria-label', 'Copy to clipboard');
 		copy.addEventListener('click', () => this.copy(value, copy, isSecret));
 		actions.appendChild(copy);
 
 		if (downloadName) {
 			const download = document.createElement('button');
-			download.className = 'copy-btn';
+			download.className = 'action-btn';
 			download.type = 'button';
-			download.innerHTML = ICON_DOWNLOAD;
+			download.innerHTML = `${ICON_DOWNLOAD}<span>Download</span>`;
 			download.setAttribute('aria-label', `Download as ${downloadName}`);
 			download.title = downloadName;
 			download.addEventListener('click', () => this.download(value, downloadName));
@@ -223,7 +241,10 @@ const terminal = {
 		text.className = 'result-text';
 		text.textContent = value;
 
-		line.append(actions, text);
+		// Text first, buttons after. The output scrolls to its bottom, so
+		// buttons placed above a long payload end up scrolled out of view and
+		// have to be hunted for — which is exactly what happened in use.
+		line.append(text, actions);
 		this.elements.output.appendChild(line);
 		this.scrollToBottom();
 	},
@@ -309,11 +330,11 @@ const terminal = {
 			return;
 		}
 
-		button.innerHTML = ICON_CHECK;
-		button.classList.add('copy-btn--done');
+		button.innerHTML = `${ICON_CHECK}<span>Copied</span>`;
+		button.classList.add('action-btn--done');
 		setTimeout(() => {
-			button.innerHTML = ICON_COPY;
-			button.classList.remove('copy-btn--done');
+			button.innerHTML = `${ICON_COPY}<span>Copy</span>`;
+			button.classList.remove('action-btn--done');
 		}, 2000);
 
 		if (isSecret) this.scheduleClipboardClear(value);
@@ -365,19 +386,25 @@ const terminal = {
 	 * for masking is the scrollback, and multiline input is still never echoed.
 	 */
 	setInputMode(step) {
-		const { input, textarea, label, hint } = this.elements;
+		const { input, textarea, label, hint, reveal } = this.elements;
 		const secret = Boolean(step?.secret);
 		const multiline = Boolean(step?.multiline);
 
 		textarea.hidden = !multiline;
 		input.hidden = multiline;
 
+		// The eye belongs only to fields that are actually masked. A textarea
+		// cannot be, so the multiline steps show their content already and the
+		// toggle would be a lie.
+		reveal.hidden = !(secret && !multiline);
+		this.applyReveal();
+
 		if (multiline) {
 			textarea.value = '';
 			label.setAttribute('for', 'terminal-textarea');
 			textarea.setAttribute('aria-label', step.prompt);
 		} else {
-			input.type = secret ? 'password' : 'text';
+			input.type = secret && !this.revealed ? 'password' : 'text';
 			input.setAttribute('autocomplete', secret ? 'new-password' : 'off');
 			input.setAttribute('aria-label', step ? step.prompt : 'Terminal command');
 			input.placeholder = step ? '' : "type 'h' for help, or drop a file here";
@@ -396,10 +423,39 @@ const terminal = {
 		this.field.focus();
 	},
 
+	/** Reflect `revealed` onto the button and, when masked, the input type. */
+	applyReveal() {
+		const { input, reveal } = this.elements;
+		if (!reveal) return;
+
+		reveal.innerHTML = this.revealed ? ICON_EYE_OFF : ICON_EYE;
+		reveal.setAttribute('aria-pressed', String(this.revealed));
+		reveal.setAttribute(
+			'aria-label',
+			this.revealed ? 'Hide what you are typing' : 'Show what you are typing'
+		);
+		reveal.title = this.revealed ? 'Hide' : 'Show';
+
+		if (!reveal.hidden) input.type = this.revealed ? 'text' : 'password';
+	},
+
+	toggleReveal() {
+		this.revealed = !this.revealed;
+		this.applyReveal();
+
+		// Give the field back the caret, at the end, so the toggle never costs
+		// the user their place mid-passphrase.
+		const { input } = this.elements;
+		input.focus();
+		const end = input.value.length;
+		input.setSelectionRange(end, end);
+	},
+
 	// --------------------------------------------------------------- flows
 
 	start(mode) {
 		this.sourceName = null;
+		this.revealed = false;
 		this.state = { mode, step: 0, data: {} };
 		const step = FLOWS[mode][0];
 		this.write(step.prompt, { kind: 'prompt' });
@@ -414,6 +470,7 @@ const terminal = {
 	 */
 	startWith(mode, text, filename) {
 		this.sourceName = filename || null;
+		this.revealed = false;
 		this.state = { mode, step: 1, data: { [FLOWS[mode][0].key]: text } };
 
 		this.reportContents(text, mode === 'encrypt' ? 'Ready to encrypt' : 'Read');
@@ -475,6 +532,7 @@ const terminal = {
 
 	cancel(message = 'Cancelled.') {
 		if (!this.state.mode) return;
+		this.revealed = false;
 		this.state = { mode: null, step: 0, data: {} };
 		this.setInputMode(null);
 		this.write(message, { kind: 'muted' });
@@ -507,6 +565,7 @@ const terminal = {
 		}
 
 		const { mode, data } = this.state;
+		this.revealed = false;
 		this.state = { mode: null, step: 0, data: {} };
 		this.setInputMode(null);
 		await this.run(mode, data);
@@ -537,13 +596,15 @@ const terminal = {
 		}, 80);
 
 		try {
+			// In both branches the result block goes last, so after the output
+			// scrolls to its bottom the buttons are the nearest thing to hand.
 			if (mode === 'encrypt') {
 				const inputBytes = summarize(data.text).bytes;
 				const payload = await encryptText(data.text, data.passphrase, data.pepper);
 				working.remove();
 				this.write('Encrypted. Store this somewhere you can get it back:', { kind: 'ok' });
-				this.writeResult(payload, false, encryptedName(this.sourceName || 'secret.txt'));
 				this.reportPayloadSize(payload, inputBytes);
+				this.writeResult(payload, false, encryptedName(this.sourceName || 'secret.txt'));
 			} else {
 				const plaintext = await decryptText(data.payload, data.passphrase, data.pepper);
 				working.remove();
@@ -708,6 +769,7 @@ const terminal = {
 		this.elements.form = document.querySelector('.terminal-input-line');
 		this.elements.hint = document.querySelector('.terminal-hint');
 		this.elements.veil = document.querySelector('.drop-veil');
+		this.elements.reveal = document.querySelector('.reveal-btn');
 
 		if (!this.elements.output || !this.elements.input) return;
 
@@ -717,6 +779,8 @@ const terminal = {
 		});
 
 		this.initDropTarget();
+
+		this.elements.reveal.addEventListener('click', () => this.toggleReveal());
 
 		// In the textarea, Enter inserts a newline and only a modifier submits;
 		// otherwise pasting a .env would submit on its first line break.

@@ -69,6 +69,11 @@ application.
 | `Esc` | Cancel the current step |
 | `↑` `↓` | Previous commands |
 
+While typing a passphrase or pepper, the **eye beside the prompt** reveals what
+you are typing — a masked field is how you misspell a passphrase twice without
+ever learning which attempt was wrong. It clears itself when the flow ends, and
+the scrollback still shows only a mask either way.
+
 You can also **drag a file onto the window** — a `.env` gets encrypted, a `.enc`
 gets opened. The file is read in the browser and goes nowhere.
 

@@ -70,6 +70,14 @@
 				autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"
 				aria-label="Text input" hidden></textarea>
 
+			<!--
+				Shown only while a masked field is active. Typing a passphrase
+				blind is how you misspell it twice and never find out which
+				attempt was wrong.
+			-->
+			<button class="reveal-btn" id="reveal-toggle" type="button" hidden
+				aria-pressed="false" aria-label="Show what you are typing"></button>
+
 			<button class="submit-btn" type="submit" aria-label="Run">⏎</button>
 		</form>
 	</main>
