@@ -456,7 +456,8 @@ node cli/secure-term.js --help
 npm test
 ```
 
-143 tests under Node's built-in runner; `npm test` is the source of truth. The
+A dependency-free suite under Node's built-in runner — `npm test` is the count
+that matters, and the only one that cannot go stale. The
 crypto tests run against Node's Web Crypto — the same standard API the browser
 provides — so `js/crypto.js` is exercised unmodified.
 
@@ -523,6 +524,31 @@ scoped name like `@hfconsultant/secure-term` — the steps are: bump `version` i
 `package.json` (a test asserts the CLI reports the same one), push, let CI pass,
 then create a Release. The workflow re-runs the tests, refuses a version already
 on npm, and publishes with provenance.
+
+## Built with
+
+Nothing was installed to build this. The whole stack is things that were
+already there:
+
+| | |
+| --- | --- |
+| **Web Crypto API** | every bit of the cryptography, built into browsers and Node alike |
+| **`CompressionStream`** | gzip, same story — no library |
+| **Node's test runner** | the whole suite, zero dev dependencies |
+| **GitHub Pages + Actions** | hosting, CI on Node 20/22/24, and a publish workflow that has never fired |
+| **[Claude Code](https://claude.com/claude-code)** | the pair programming — and why `claude` turns up in the contributor list |
+
+On that last one, the honest version. It wrote most of the tests, and found
+that the service worker had never once installed in the app's entire life. It
+also *introduced* the bug where a payload sealed with a pepper could no longer
+be opened — and then found that one eleven commits later, during a pre-publish
+audit, in a test file it had written itself and quietly under-covered.
+
+Fifty-nine commits here predate it entirely — the 2024 build. Everything after
+that carries its co-author trailer, which is the tidiest summary of the split:
+the app was one person's idea, and the hardening was a conversation.
+[PROMPTS.md](PROMPTS.md) keeps the receipts, including the parts where the
+confident-sounding review turned out to be wrong.
 
 ## Documentation
 
